@@ -1,5 +1,6 @@
-import { useState } from "react";
-import type { Bundle, FactorId } from "../lib/data";
+import { useState, type ReactNode } from "react";
+import type { Bundle, FactorId, SiteScore } from "../lib/data";
+import { useActiveSection } from "../lib/useActiveSection";
 import { asset } from "../lib/data";
 import { fmt, smart } from "../lib/score";
 import { ddPair } from "../lib/geo";
@@ -24,29 +25,34 @@ export function Findings({ b, openSite }: { b: Bundle; openSite: Open }) {
   return (
     <div className="page findings"><div className="pagein">
       <header className="pagehead">
-        <p className="pagekind">Findings</p>
         <h1>What a blind search of Earth's land surface turned up</h1>
         <p className="lede">Every one of {b.meta.grid.land_cells.toLocaleString()} land cells was scored against {b.targets.length} specific regions of the Moon and Mars using measured terrain, temperature, moisture, surface and atmosphere, then checked against independent geological maps. Nothing below was placed by hand: each site is where the numbers put it.</p>
       </header>
 
       <ol className="argument" aria-label="The three results">
         <li className="step">
-          <div className="figure">{env.top25}<small> of {env.n}</small></div>
-          <div><h2>Proof</h2>
-            <p>analog sites that the community chose for their <b>environment</b> fall in the top quarter of Earth's land in our ranking; {env.top10} are in the top tenth. Chance alone would put about {Math.round(env.n * 0.25)} there (p = {pval(env.p)}).</p>
-            <a href="#validation">See how each established site ranked</a></div>
+          <div className="stephead"><h2>Proof</h2><div className="figure num">{env.top25}<small> of {env.n}</small></div></div>
+          <div className="steptext">
+            <p>analog sites that the community chose for their environment fall in the top quarter of Earth's land in our ranking; {env.top10} are in the top tenth. Chance alone would put about {Math.round(env.n * 0.25)} there (p = {pval(env.p)}).</p>
+            <a href="#validation">See how each established site ranked</a>
+          </div>
+          <figure className="stepfig"><ProofStrip b={b} /></figure>
         </li>
         <li className="step">
-          <div className="figure">{leadSc ? leadSc.matched.length : "—"}<small> of {leadSc ? leadSc.expected.length : "—"}</small></div>
-          <div><h2>Surprise</h2>
+          <div className="stephead"><h2>Surprise</h2><div className="figure num">{leadSc ? leadSc.matched.length : "—"}<small> of {leadSc ? leadSc.expected.length : "—"}</small></div></div>
+          <div className="steptext">
             <p>dimensions matched by a site that appears on no established analog list we could find: {leadSite ? [leadSite.name.split(" · ")[0], leadSite.name.split(" · ").slice(-1)[0]].join(", ") : "—"}, against {lead ? tname(b, lead.target) : "—"}.</p>
-            <a href="#finding-1">Read the evidence and its limits</a></div>
+            <a href="#finding-1">Read the evidence and its limits</a>
+          </div>
+          {leadSc && lead && <figure className="stepfig" data-body={b.targets.find((t) => t.id === lead.target)?.body}><DimBars b={b} sc={leadSc} /></figure>}
         </li>
         <li className="step">
-          <div className="figure">{b.portfolio.n_covered}<small> of {b.portfolio.n_requirements}</small></div>
-          <div><h2>Usefulness</h2>
+          <div className="stephead"><h2>Usefulness</h2><div className="figure num">{b.portfolio.n_covered}<small> of {b.portfolio.n_requirements}</small></div></div>
+          <div className="steptext">
             <p>region-by-dimension requirements are covered by a portfolio of {b.portfolio.chosen.length} complementary sites. The rest cannot be covered anywhere on Earth, and we say which.</p>
-            <a href="#/portfolio">Open the portfolio</a></div>
+            <a href="#/portfolio">Open the portfolio</a>
+          </div>
+          <figure className="stepfig"><CoverageUnits b={b} /></figure>
         </li>
       </ol>
 
@@ -58,7 +64,7 @@ export function Findings({ b, openSite }: { b: Bundle; openSite: Open }) {
         return (
           <article className="finding" key={f.id} id={`finding-${i + 1}`} data-body={target.body}>
             <div className="ftext">
-              <p className="pagekind">Finding {i + 1}. Compared with {target.name}, {target.body === "mars" ? "Mars" : "Moon"}</p>
+              <p className="kicker">Finding {i + 1}, compared with {target.name} on {BODY[target.body]}</p>
               <h3>{f.headline}</h3>
               <p className="prose lead">{f.summary}</p>
               <dl className="evgrid">
@@ -143,6 +149,82 @@ function ValidationTable({ b, openSite }: { b: Bundle; openSite: Open }) {
   );
 }
 
+/* ------------------------------------------------------------------ figures for the three results */
+/** Every established analog on the calibrated-rank axis, split by why it was chosen. */
+function ProofStrip({ b }: { b: Bundle }) {
+  const rows = b.validation.rows;
+  const W = 400, H = 118, L = 4, R = 4;
+  const x = (u: number) => L + (W - L - R) * u;
+  const groups = [
+    { env: true, y: 34, label: `Chosen for environment, n = ${b.validation.env.balanced.n}` },
+    { env: false, y: 78, label: `Chosen for geology or operations, n = ${b.validation.other.balanced.n}` },
+  ];
+  return (
+    <svg className="chart proof" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Calibrated rank of every established analog, grouped by why it was chosen">
+      <rect className="topq" x={x(0.75)} y={12} width={x(1) - x(0.75)} height={H - 34} />
+      {groups.map((g) => (
+        <g key={String(g.env)}>
+          <text className="glabel" x={L} y={g.y - 13}>{g.label}</text>
+          <line className="axis" x1={L} x2={W - R} y1={g.y} y2={g.y} />
+          <line className="ref" x1={x(0.5)} x2={x(0.5)} y1={g.y - 9} y2={g.y + 9} />
+          {rows.filter((r) => r.env === g.env).map((r, i) => (
+            <circle key={r.id} className={g.env ? "dot env" : "dot"} cx={x(r.u)} cy={g.y + ((i % 3) - 1) * 4.5} r={4.2}><title>{`${r.name}: calibrated rank ${r.u.toFixed(2)}`}</title></circle>
+          ))}
+        </g>
+      ))}
+      <text x={x(0)} y={H - 6}>0, worst land</text>
+      <line className="ref" x1={x(0.5)} x2={x(0.5)} y1={H - 26} y2={H - 18} />
+      <text x={x(0.5)} y={H - 6} textAnchor="middle">chance</text>
+      <text x={x(0.875)} y={H - 6} textAnchor="middle">top quarter</text>
+      <text x={x(1)} y={H - 6} textAnchor="end">1</text>
+    </svg>
+  );
+}
+
+/** One bar per dimension with the match threshold marked: why the lead site matches four of five. */
+function DimBars({ b, sc }: { b: Bundle; sc: SiteScore }) {
+  const th = b.meta.params.match_threshold;
+  return (
+    <div className="dimbars" role="img" aria-label={sc.expected.map((k) => `${flabel(b, k)} ${fmt(sc.fac[k], 2)}`).join(", ")}>
+      {sc.expected.map((k) => (
+        <div className="fachead" key={k}>
+          <span className="fn">{flabel(b, k)}</span>
+          <div className="bar"><i style={{ width: `${(sc.fac[k] ?? 0) * 100}%`, opacity: sc.fac[k] == null ? 0 : 1 }} /><u style={{ left: `${th * 100}%` }} /></div>
+          <span className="v">{sc.fac[k] == null ? "n/a" : fmt(sc.fac[k], 2)}</span>
+        </div>
+      ))}
+      <p className="fine">The tick marks the match threshold, {th}.</p>
+    </div>
+  );
+}
+
+/** Each square is one requirement (a dimension of one reference region); filled squares are covered by the portfolio. */
+function CoverageUnits({ b }: { b: Bundle }) {
+  const p = b.portfolio;
+  const covered = new Set(p.chosen.flatMap((c) => c.gain.map(([t, k]) => `${t}|${k}`)));
+  return (
+    <div className="units">
+      {b.meta.factors.map((f) => {
+        const req = p.requirements.filter((r) => r[1] === f.id);
+        if (!req.length) return null;
+        const n = req.filter(([t, k]) => covered.has(`${t}|${k}`)).length;
+        return (
+          <div className="urow" key={f.id}>
+            <span className="ul">{f.label}</span>
+            <span className="sq">{req.map(([t, k]) => <i key={t} className={covered.has(`${t}|${k}`) ? "on" : ""} title={`${f.label} like ${tname(b, t)}: ${covered.has(`${t}|${k}`) ? "covered" : "not covered"}`} />)}</span>
+            <span className="num">{n}/{req.length}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** A stacked fraction for the typeset formulas on the Method page. */
+function Frac({ n, d }: { n: ReactNode; d: ReactNode }) {
+  return <span className="frac"><span>{n}</span><span>{d}</span></span>;
+}
+
 /* ------------------------------------------------------------------ PORTFOLIO */
 export function Portfolio({ b, openSite }: { b: Bundle; openSite: Open }) {
   const p = b.portfolio;
@@ -164,7 +246,6 @@ export function Portfolio({ b, openSite }: { b: Bundle; openSite: Open }) {
   return (
     <div className="page portfolio"><div className="pagein wide">
       <header className="pagehead">
-        <p className="pagekind">Analog portfolio</p>
         <h1>No single place is enough. Which few, together, cover the most?</h1>
         <p className="lede">A requirement is one dimension of one reference region, for example “terrain like Gale Crater”. A site covers it when its score for that dimension reaches {p.threshold}. Sites are added greedily: each pick is the one that covers the most requirements still open (a standard set-cover heuristic). {p.n_covered} of {p.n_requirements} requirements end up covered.</p>
       </header>
@@ -174,7 +255,7 @@ export function Portfolio({ b, openSite }: { b: Bundle; openSite: Open }) {
           marks={chosen.map((x) => ({ id: x.c.id, lat: x.s.lat, lon: x.s.lon, letter: x.letter, label: x.c.name.split(" · ")[0].split(" — ")[0] }))}
           lines={chosen.map((x) => `adds ${x.c.gain.length}: ${x.role}`)}
           minor={b.sites.filter((s) => !chosenIds.has(s.id)).map((s) => ({ lat: s.lat, lon: s.lon, title: s.name }))} />
-        <p className="credit">Equal Earth projection, which keeps areas true. Lettered sites are the portfolio in the order they were chosen; small dots are the other {b.sites.length - p.chosen.length} listed sites. Land outline: Natural Earth 1:110m.</p>
+        <p className="credit plate-cap">Equal Earth projection, which keeps areas true. Lettered sites are the portfolio in the order they were chosen; small dots are the other {b.sites.length - p.chosen.length} listed sites. Land outline: Natural Earth 1:110m.</p>
       </section>
 
       <section>
@@ -264,15 +345,15 @@ export function Method({ b, openSite }: { b: Bundle; openSite: Open }) {
     return f.id === "cryo" ? "logistic at 271 K" : "months below 273 K";
   };
   const H = ({ id, n }: { id: string; n: number }) => <h2 id={id}><span className="secno">{n}</span>{SECTIONS[n - 1][1]}</h2>;
+  const active = useActiveSection(SECTIONS.map(([id]) => id));
   return (
     <div className="page method"><div className="pagein doc">
       <nav className="toc" aria-label="On this page">
-        <p>Method &amp; data</p>
-        <ol>{SECTIONS.map(([id, t]) => <li key={id}><a href={`#${id}`} onClick={(e) => { e.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>{t}</a></li>)}</ol>
+        <p>Contents</p>
+        <ol>{SECTIONS.map(([id, t]) => <li key={id}><a href={`#${id}`} aria-current={active === id ? "true" : undefined} onClick={(e) => { e.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>{t}</a></li>)}</ol>
       </nav>
       <div className="docbody">
         <header className="pagehead">
-          <p className="pagekind">Method &amp; data</p>
           <h1>How a similarity score is made, and how far to trust it</h1>
           <p className="lede">The scoring code is short and public (<span className="num">pipeline/score.py</span>). Everything on this page is generated from the same run that produced the map: {m.generated}, {m.grid.land_cells.toLocaleString()} land cells at {m.grid.deg}°, {m.counts.targets} reference regions, {m.counts.sites} sites in the detailed tier.</p>
         </header>
@@ -282,9 +363,9 @@ export function Method({ b, openSite }: { b: Bundle; openSite: Open }) {
 
         <H id="compare" n={2} />
         <div className="rules3">
-          <div><h4>Direct match</h4><p className="prose">For quantities Earth can actually reach: slopes, relief, albedo, dust loading.</p><div className="formula">{"s = 0.5 ^ ( |x − x★| / τ )\nτ = " + m.params.tol_k + " × spread over Earth's land"}</div><p className="note">Similarity halves for every τ of mismatch. τ is set by how much the variable varies across Earth, not by hand.</p></div>
-          <div><h4>Gap closure</h4><p className="prose">For quantities no place on Earth reaches: temperature, dryness, pressure.</p><div className="formula">{"s = (x − x⊕) / (x★ − x⊕)\nx⊕ = median of Earth's land"}</div><p className="note">1 means the site reaches the planetary value, 0 means it is no closer than ordinary land. A distance metric would read ~0 everywhere and hide real differences.</p></div>
-          <div><h4>Category affinity</h4><p className="prose">For rock type, from independent geological maps, at listed sites only.</p><div className="formula">{"s = mean over documented lithologies\n    of best affinity mapped at site"}</div><p className="note">Basalt for basalt scores 1; gabbro for basalt 0.6; any other exposed rock 0.15. Impact structures and lava tubes are not on maps and are not scored.</p></div>
+          <div><h4>Direct match</h4><p className="prose">For quantities Earth can actually reach: slopes, relief, albedo, dust loading.</p><div className="formula"><span className="eqline"><var>s</var> = 0.5<sup>|<var>x</var> − <var>x</var>★| / <var>τ</var></sup></span><span className="eqline"><var>τ</var> = {m.params.tol_k} × spread over Earth's land</span></div><p className="note">Similarity halves for every τ of mismatch. τ is set by how much the variable varies across Earth, not by hand.</p></div>
+          <div><h4>Gap closure</h4><p className="prose">For quantities no place on Earth reaches: temperature, dryness, pressure.</p><div className="formula"><span className="eqline"><var>s</var> = <Frac n={<><var>x</var> − <var>x</var>⊕</>} d={<><var>x</var>★ − <var>x</var>⊕</>} /></span><span className="eqline"><var>x</var>⊕ = median of Earth's land</span></div><p className="note">1 means the site reaches the planetary value, 0 means it is no closer than ordinary land. A distance metric would read ~0 everywhere and hide real differences.</p></div>
+          <div><h4>Category affinity</h4><p className="prose">For rock type, from independent geological maps, at listed sites only.</p><div className="formula"><span className="eqline"><var>s</var> = mean over documented lithologies</span><span className="eqline indent">of the best affinity mapped at the site</span></div><p className="note">Basalt for basalt scores 1; gabbro for basalt 0.6; any other exposed rock 0.15. Impact structures and lava tubes are not on maps and are not scored.</p></div>
         </div>
         <div className="sheet scroll-x">
           <table className="data">
@@ -297,12 +378,12 @@ export function Method({ b, openSite }: { b: Bundle; openSite: Open }) {
 
         <H id="combine" n={3} />
         <div className="grid2">
-          <div><h4>Similarity</h4><div className="formula">{"dimension = geometric mean of its variables\noverall   = exp( Σ wᵢ · ln max(sᵢ, " + m.params.floor + ") / Σ wᵢ )"}</div><p className="note">Geometric means are deliberate: an ice sheet is bare but not rock-coloured, and a hot desert is dry but not cold. Neither should be able to average its way to a high score. Weights are the mission profile and are adjustable on the Explore page. A dimension counts as matched at {m.params.match_threshold}.</p></div>
+          <div><h4>Similarity</h4><div className="formula"><span className="eqline">dimension = geometric mean of its variables</span><span className="eqline">overall = exp <span className="paren">(</span><Frac n={<>Σ <var>w</var><sub>i</sub> ln max(<var>s</var><sub>i</sub>, {m.params.floor})</>} d={<>Σ <var>w</var><sub>i</sub></>} /><span className="paren">)</span></span></div><p className="note">Geometric means are deliberate: an ice sheet is bare but not rock-coloured, and a hot desert is dry but not cold. Neither should be able to average its way to a high score. Weights are the mission profile and are adjustable on the Explore page. A dimension counts as matched at {m.params.match_threshold}.</p></div>
           <div><h4>Confidence = coverage × evidence quality × rank stability</h4><ul className="plain">
             <li><b>Coverage</b>: share of the profile's weight backed by data at that site.</li>
             <li><b>Evidence quality</b>: the weaker of the Earth and planetary data kinds per variable ({Object.entries(m.evidence_grade).map(([k, v]) => `${k} ${v}`).join(", ")}).</li>
             <li><b>Rank stability</b>: how little the site's percentile moves across {m.sensitivity.runs} perturbed runs.</li>
-          </ul><p className="note">High ≥ 0.55, moderate ≥ 0.35. Confidence never changes the similarity number. On every map and list it is drawn in ink (<ConfMark label="high" />, <ConfMark label="moderate" />, <ConfMark label="low" />), while similarity alone uses colour.</p></div>
+          </ul><p className="note">High ≥ 0.55, moderate ≥ 0.35. Confidence never changes the similarity number. On every map and list it is drawn as a fill (<ConfMark label="high" />, <ConfMark label="moderate" />, <ConfMark label="low" />), while similarity alone uses colour.</p></div>
         </div>
 
         <H id="sensitivity" n={4} />

@@ -17,6 +17,9 @@ const VIEWS: { id: View; label: string }[] = [
   { id: "explore", label: "Explore" }, { id: "findings", label: "Findings" }, { id: "portfolio", label: "Portfolio" }, { id: "method", label: "Method & data" },
 ];
 type ConfMin = "any" | "moderate" | "high";
+// On narrow screens the four side panels share one place under the map; this bar chooses which is shown.
+type Pane = "sites" | "reference" | "question" | "layers";
+const PANES: { id: Pane; label: string }[] = [{ id: "sites", label: "Sites" }, { id: "reference", label: "Region" }, { id: "question", label: "Question" }, { id: "layers", label: "Layers" }];
 const CONF_OK: Record<ConfMin, string[]> = { any: ["high", "moderate", "low"], moderate: ["high", "moderate"], high: ["high"] };
 
 function readHash() {
@@ -45,6 +48,7 @@ export default function App() {
   });
   const [railTab, setRailTab] = useState<"question" | "layers">("question");
   const [sideTab, setSideTab] = useState<"ranking" | "reference">("ranking");
+  const [pane, setPane] = useState<Pane>("sites");
   const [grids, setGrids] = useState<{ id: string; g: Partial<Record<FactorId, Float32Array>> } | null>(null);
   const patchLs = useCallback((p: Partial<LayerState>) => setLs((s) => ({ ...s, ...p })), []);
 
@@ -66,7 +70,7 @@ export default function App() {
     const h = `#/${view}${q.toString() ? "?" + q : ""}`;
     if (window.location.hash !== h) window.history.replaceState(null, "", h);
   }, [view, targetId, siteId, layer, ls.base, ls.obs]);
-  useEffect(() => { document.title = `${VIEWS.find((v) => v.id === view)!.label} · Planetary Twin field atlas`; }, [view]);
+  useEffect(() => { document.title = `${VIEWS.find((v) => v.id === view)!.label} · Planetary Twin`; }, [view]);
 
   const target: Target | undefined = b?.targets.find((t) => t.id === targetId) ?? b?.targets[0];
   const body: Body = target?.body ?? "mars";
@@ -121,40 +125,59 @@ export default function App() {
   const pickBody = (bd: Body) => { if (bd !== body && b) pickTarget(b.targets.find((t) => t.body === bd)!.id); };
   const pickProfile = (p: string) => { setProfile(p); if (b) setWeights({ ...b.meta.profiles[p].w }); };
 
-  if (err) return <div className="loading">Could not load analysis data — {err}. Run the pipeline (see README) to generate web/public/data.</div>;
-  if (!b || !target || !weights) return <div className="loading">Loading the analysis…</div>;
+  if (err) return (
+    <div className="loading failed" role="alert">
+      <Mark size={44} />
+      <h1>The analysis data did not load</h1>
+      <p>{err}</p>
+      <p className="fine">Run the data pipeline to generate <span className="num">web/public/data</span> (the README explains how), then reload this page.</p>
+    </div>
+  );
+  if (!b || !target || !weights) return (
+    <div className="loading" role="status">
+      <Mark size={44} />
+      <p>Loading the analysis</p>
+      <i className="loadbar" aria-hidden="true" />
+    </div>
+  );
 
   const site = siteId ? b.sites.find((s) => s.id === siteId) : undefined;
   const sitePct = site && overallGrid && dist ? dist.pct(cellValue(overallGrid, gw, gh, site.lat, site.lon)) : NaN;
   const facLabel = (k: FactorId) => b.meta.factors.find((f) => f.id === k)!.label;
   const tf = (k: string, d = 0) => fmt(target.features[k]?.value, d);
-  const baseDef = earthLayer(ls.base)!;
-  const rampName = rampFor(body, !!baseDef.dark);
+  const rampName = rampFor(body);
   const bodyTargets = b.targets.filter((t) => t.body === body);
+  const bodyName = body === "mars" ? "Mars" : "the Moon";
   const layerLabel = activeLayer === "overall" ? "overall similarity" : `${facLabel(activeLayer).toLowerCase()} score`;
   const profileLabel = profile === "custom" ? "custom weights" : `${b.meta.profiles[profile].label} profile`;
   const dossier = !!(site && site.scores[target.id]);
+  const showPane = (p: Pane) => {
+    setPane(p);
+    if (p === "question" || p === "layers") setRailTab(p);
+    else setSideTab(p === "sites" ? "ranking" : "reference");
+  };
+  const clearFilters = () => { setKind("all"); setConfMin("any"); };
 
   return (
     <div className="app" data-body={body}>
       <header className="masthead">
         <a className="brand" href="#/explore" onClick={() => go("explore")}>
-          <svg width="30" height="20" viewBox="0 0 30 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="none" stroke="var(--ink)" strokeWidth="1.4" /><circle cx="20" cy="10" r="8" fill="none" stroke="var(--accent)" strokeWidth="1.4" /><path d="M15 3.8a8 8 0 0 1 0 12.4a8 8 0 0 1 0-12.4z" fill="var(--ink)" fillOpacity=".14" /></svg>
-          <b>Planetary Twin</b><span>A field atlas of Earth analogs for the Moon and Mars</span>
+          <Mark />
+          <b>Planetary Twin</b><span>Earth analogs for the Moon and Mars</span>
         </a>
         <nav className="nav" aria-label="Sections">
           {VIEWS.map((v) => <button key={v.id} aria-current={view === v.id ? "page" : undefined} onClick={() => go(v.id)}>{v.label}</button>)}
         </nav>
         <div className="bodyswitch" role="group" aria-label="Planetary body">
           <span>Compare Earth with</span>
-          <button data-b="mars" aria-pressed={body === "mars"} onClick={() => pickBody("mars")}>Mars</button>
-          <button data-b="moon" aria-pressed={body === "moon"} onClick={() => pickBody("moon")}>Moon</button>
+          <button data-b="mars" aria-pressed={body === "mars"} onClick={() => pickBody("mars")}><i aria-hidden="true" />Mars</button>
+          <button data-b="moon" aria-pressed={body === "moon"} onClick={() => pickBody("moon")}><i aria-hidden="true" />Moon</button>
         </div>
       </header>
 
       {view === "explore" && (
-        <div className={`explore ${dossier ? "dossier-open" : ""}`}>
-          <aside className="rail">
+        <div className={`explore view ${dossier ? "dossier-open" : ""}`} data-pane={pane}>
+          <aside className="rail" aria-label="Question and map layers">
             <div className="railtabs" role="tablist">
               <button role="tab" aria-selected={railTab === "question"} onClick={() => setRailTab("question")}>Question</button>
               <button role="tab" aria-selected={railTab === "layers"} onClick={() => setRailTab("layers")}>Map layers</button>
@@ -162,11 +185,11 @@ export default function App() {
             {railTab === "question" ? (
               <>
                 <div className="section">
-                  <h3>Which place on {body === "mars" ? "Mars" : "the Moon"}?</h3>
+                  <h3><span className="stepno" aria-hidden="true">1</span>Which place on {bodyName}?</h3>
                   <div className="refpick">
-                    <Locator lat={target.lat} lon={target.lon} body={body} size={96} onPick={pickTarget}
+                    <Locator lat={target.lat} lon={target.lon} body={body} size={104} onPick={pickTarget}
                       marks={bodyTargets.map((t) => ({ id: t.id, lat: t.lat, lon: t.lon, on: t.id === target.id, title: t.name }))} />
-                    <p className="fine">{bodyTargets.length} reference regions on {body === "mars" ? "Mars" : "the Moon"}. The dot marks the one selected; regions on the far side are hidden. See its imagery under Reference region, on the right.</p>
+                    <p className="fine">{bodyTargets.length} reference regions on {bodyName}. The ringed dot is the one selected; regions on the far side are hidden. Its imagery is under Reference region.</p>
                   </div>
                   <div className="tlist">
                     {bodyTargets.map((t) => (
@@ -178,11 +201,11 @@ export default function App() {
                   </div>
                 </div>
                 <div className="section">
-                  <h3>What matters for the mission?</h3>
+                  <h3><span className="stepno" aria-hidden="true">2</span>What matters for the mission?</h3>
                   <div className="chips">
                     {Object.entries(b.meta.profiles).map(([k, p]) => <button key={k} className="chip" aria-pressed={profile === k} onClick={() => pickProfile(k)} title={p.blurb}>{p.label}</button>)}
                   </div>
-                  <p className="note">{profile === "custom" ? "Custom weights. Map and rankings update live." : b.meta.profiles[profile].blurb}</p>
+                  <p className="note blurb">{profile === "custom" ? "Custom weights. The map and the ranking update as you drag." : b.meta.profiles[profile].blurb}</p>
                   <div className="weights">
                     {b.meta.factors.map((fa) => {
                       const on = fa.id === "geology" ? target.geology_assessable.length > 0 : target.factors.includes(fa.id);
@@ -190,6 +213,7 @@ export default function App() {
                         <div key={fa.id} className={`wrow ${on ? "" : "off"}`} title={on ? "" : "Not applicable to this reference region"}>
                           <span>{fa.label}</span>
                           <input type="range" min={0} max={4} step={0.25} value={weights[fa.id]} disabled={!on} aria-label={`${fa.label} weight`}
+                            style={{ ["--v" as any]: `${(weights[fa.id] / 4) * 100}%` }}
                             onChange={(e) => { setProfile("custom"); setWeights({ ...weights, [fa.id]: Number(e.target.value) }); }} />
                           <span className="num">{weights[fa.id].toFixed(2)}</span>
                         </div>
@@ -212,7 +236,7 @@ export default function App() {
                   <p>Where Earth resembles</p>
                   <h2>{target.name}</h2>
                   <p className="sub">{target.sub}, {body === "mars" ? "Mars" : "Moon"} <span className="num">{ddPair(target.lat, target.lon)}</span></p>
-                  <p className="sub">{layerLabel}, {profileLabel}</p>
+                  <p className="sub">Showing {layerLabel}, {profileLabel}</p>
                 </div>
                 <div className="segs" role="group" aria-label="Dimension shown on the map">
                   <button aria-pressed={activeLayer === "overall"} onClick={() => setLayer("overall")}>Overall</button>
@@ -226,7 +250,13 @@ export default function App() {
             <div className="mapfoot">{attribution(ls, b.meta.grid.land_cells, b.meta.grid.deg)}</div>
           </div>
 
-          <aside className="side">
+          {!dossier && (
+            <div className="panebar" role="tablist" aria-label="Panels">
+              {PANES.map((p) => <button key={p.id} role="tab" aria-selected={pane === p.id} onClick={() => showPane(p.id)}>{p.label}</button>)}
+            </div>
+          )}
+
+          <aside className="side" aria-label={dossier ? "Field report" : "Ranked sites and reference region"}>
             {dossier ? (
               <SiteDetail key={site!.id + target.id} b={b} site={site!} target={target} weights={weights} pct={sitePct} onBack={() => setSiteId(null)} onTarget={pickTarget} />
             ) : (
@@ -238,7 +268,7 @@ export default function App() {
                 {sideTab === "ranking" ? (
                   <>
                     <div className="section">
-                      <h3>{list.length} sites, ranked by similarity to {target.name}</h3>
+                      <h3><span className="count num">{list.length}</span> sites ranked by similarity to {target.name}</h3>
                       <div className="filters">
                         {(["all", "known", "candidate"] as const).map((k) => <button key={k} className="chip" aria-pressed={kind === k} onClick={() => setKind(k)}>{k === "all" ? "All" : k === "known" ? "Established" : "New candidates"}</button>)}
                       </div>
@@ -247,27 +277,37 @@ export default function App() {
                         {(["any", "moderate", "high"] as const).map((k) => <button key={k} className="chip" aria-pressed={confMin === k} onClick={() => setConfMin(k)}>{k === "any" ? "Any" : k === "moderate" ? "Moderate or high" : "High only"}</button>)}
                       </div>
                     </div>
-                    {list.length === 0 && <div className="section"><p className="note">No listed site passes these filters for {target.name}. Loosen the confidence filter to see leads that still need checking.</p></div>}
-                    {list.slice(0, 40).map((x, i) => {
-                      const sc = x.site.scores[target.id];
-                      const [nm, ...pl] = x.site.name.split(" · ");
-                      return (
-                        <button key={x.site.id} className="rk" onClick={() => setSiteId(x.site.id)}>
-                          <span className="r">{i + 1}</span>
-                          <span className="nm" title={x.site.name}>{x.site.name}</span>
-                          <span className="nm2" aria-hidden="true"><b>{nm}</b>{pl.length ? <i>{pl.join(", ")}</i> : null}</span>
-                          <span className="sc">{fmt(x.overall, 2)}</span>
-                          <span className="meta">
-                            <SiteGlyph kind={x.site.kind} conf={sc.conf.label} />
-                            <span className={`tag ${x.site.kind === "known" ? "known" : "cand"}`}>{x.site.kind === "known" ? "established" : "candidate"}</span>
-                            <Pips expected={sc.expected} matched={sc.matched} have={(k) => sc.fac[k as FactorId] != null} />
-                            <span className="num">{sc.matched.length}/{sc.expected.length}</span>
-                            <ConfMark label={sc.conf.label} />
-                            <span className="num dim">{ddPair(x.site.lat, x.site.lon, 1)}</span>
-                          </span>
-                        </button>
-                      );
-                    })}
+                    {list.length === 0 && (
+                      <div className="section empty-state">
+                        <p>No listed site passes these filters for {target.name}.</p>
+                        <p className="note">Leads with lower confidence still exist; they need checking before they can be trusted.</p>
+                        <button className="btn" onClick={clearFilters}>Show every site</button>
+                      </div>
+                    )}
+                    <ol className="ranklist">
+                      {list.slice(0, 40).map((x, i) => {
+                        const sc = x.site.scores[target.id];
+                        const [nm, ...pl] = x.site.name.split(" · ");
+                        return (
+                          <li key={x.site.id}>
+                            <button className="rk" onClick={() => setSiteId(x.site.id)}>
+                              <span className="r num">{i + 1}</span>
+                              <span className="nm" title={x.site.name}>{x.site.name}</span>
+                              <span className="nm2" aria-hidden="true"><b>{nm}</b>{pl.length ? <i>{pl.join(", ")}</i> : null}</span>
+                              <span className="sc">{fmt(x.overall, 2)}</span>
+                              <span className="meta">
+                                <SiteGlyph kind={x.site.kind} conf={sc.conf.label} />
+                                <span className={`tag ${x.site.kind === "known" ? "known" : "cand"}`}>{x.site.kind === "known" ? "established" : "candidate"}</span>
+                                <Pips expected={sc.expected} matched={sc.matched} have={(k) => sc.fac[k as FactorId] != null} />
+                                <span className="num">{sc.matched.length}/{sc.expected.length}</span>
+                                <ConfMark label={sc.conf.label} />
+                                <span className="num dim">{ddPair(x.site.lat, x.site.lon, 1)}</span>
+                              </span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ol>
                     <div className="section"><p className="note">Squares show which dimensions reach the match threshold ({b.meta.params.match_threshold}). Similarity and confidence are separate: a high score with low confidence is a lead, not a conclusion.</p></div>
                   </>
                 ) : (
@@ -304,5 +344,16 @@ export default function App() {
       {view === "portfolio" && <Portfolio b={b} openSite={openSite} />}
       {view === "method" && <Method b={b} openSite={openSite} />}
     </div>
+  );
+}
+
+/** The wordmark: Earth and its planetary twin, overlapping where they resemble each other. */
+function Mark({ size = 30 }: { size?: number }) {
+  return (
+    <svg className="mark" width={size} height={size * 0.62} viewBox="0 0 34 21" aria-hidden="true">
+      <circle cx="11.5" cy="10.5" r="8.6" fill="none" stroke="var(--earth)" strokeWidth="1.5" />
+      <circle cx="22.5" cy="10.5" r="8.6" fill="none" stroke="var(--accent)" strokeWidth="1.5" />
+      <path d="M17 3.9a8.6 8.6 0 0 1 0 13.2a8.6 8.6 0 0 1 0-13.2z" fill="var(--fg)" />
+    </svg>
   );
 }

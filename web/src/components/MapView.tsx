@@ -20,11 +20,12 @@ export function homeView(c: HTMLElement) {
 }
 
 /* ------------------------------------------------------------------ shared atlas style pieces */
-export const INK = "#202622", PAPER = "#F1EFE8", SEA = "#D2D8D3";
+// FG is the chalk used for line work and symbols, BG the midnight ground used for halos. Same values as styles.css.
+export const FG = "#ECE5D6", BG = "#0B1220", SEA = "#0A1424";
 
-/** Hypsometric tint in sediment tones. Stops are elevations in metres. */
+/** Hypsometric tint in basalt tones: dark land on a midnight sea, lighter with altitude. Stops are metres. */
 const TINT: any[] = ["interpolate", ["linear"], ["elevation"],
-  -9000, "#C2CAC5", -200, "#CDD4CF", -1, SEA, 0, "#EFEDE5", 500, "#EAE7DC", 1500, "#E3DFD2", 3000, "#DAD5C7", 4500, "#D5D1C5", 6000, "#E7E5DE", 8000, "#F8F7F3"];
+  -9000, "#050A14", -200, "#08111F", -1, SEA, 0, "#242930", 500, "#292E35", 1500, "#303439", 3000, "#38393B", 4500, "#414240", 6000, "#4F4F4C", 8000, "#62625E"];
 
 /** Sources and layers of the "Atlas relief" basemap, reused by every Earth map in the app. */
 export function atlasStyleParts() {
@@ -34,24 +35,20 @@ export function atlasStyleParts() {
     layers: [
       { id: "bg", type: "background", paint: { "background-color": SEA } },
       { id: "relief-tint", type: "color-relief", source: "dem-tint", paint: { "color-relief-color": TINT } },
-      { id: "relief-shade", type: "hillshade", source: "dem-shade", paint: { "hillshade-shadow-color": "#3d4038", "hillshade-highlight-color": "#fffdf4", "hillshade-accent-color": "#6b6a5c", "hillshade-exaggeration": ["interpolate", ["linear"], ["zoom"], 1, 0.7, 5, 0.5, 8, 0.6, 11, 0.75], "hillshade-illumination-direction": 315 } },
+      { id: "relief-shade", type: "hillshade", source: "dem-shade", paint: { "hillshade-shadow-color": "#000000", "hillshade-highlight-color": "#A3AFBF", "hillshade-accent-color": "#05070C", "hillshade-exaggeration": ["interpolate", ["linear"], ["zoom"], 1, 0.75, 5, 0.55, 8, 0.65, 11, 0.8], "hillshade-illumination-direction": 315 } },
     ] as any[],
   };
 }
 
-/** Graticule, coastline and border layers. `dark` flips the line colour for imagery basemaps. */
+/** Graticule, coastline and border layers, drawn in chalk: every basemap is dark. */
 export function addReferenceLayers(m: maplibregl.Map, before?: string) {
   m.addSource("graticule", { type: "geojson", data: graticule(10) as any });
   m.addLayer({ id: "graticule", type: "line", source: "graticule", filter: ["any", ["==", ["get", "major"], 1], [">=", ["zoom"], 3.2]],
-    paint: { "line-color": INK, "line-opacity": ["case", ["==", ["get", "major"], 1], 0.2, 0.1], "line-width": ["case", ["==", ["get", "eq"], 1], 0.9, 0.5] } }, before);
+    paint: { "line-color": FG, "line-opacity": ["case", ["==", ["get", "major"], 1], 0.16, 0.08], "line-width": ["case", ["==", ["get", "eq"], 1], 0.9, 0.5] } }, before);
   m.addSource("borders", { type: "geojson", data: BORDERS_URL() });
-  m.addLayer({ id: "borders", type: "line", source: "borders", minzoom: 2.2, paint: { "line-color": INK, "line-opacity": 0.34, "line-width": 0.6, "line-dasharray": [3, 2] } }, before);
+  m.addLayer({ id: "borders", type: "line", source: "borders", minzoom: 2.2, paint: { "line-color": FG, "line-opacity": 0.26, "line-width": 0.6, "line-dasharray": [3, 2] } }, before);
   m.addSource("coast", { type: "geojson", data: COAST_URL() });
-  m.addLayer({ id: "coast", type: "line", source: "coast", paint: { "line-color": INK, "line-opacity": 0.62, "line-width": ["interpolate", ["linear"], ["zoom"], 1, 0.55, 6, 1] } }, before);
-}
-export function tintReferenceLayers(m: maplibregl.Map, dark: boolean) {
-  const c = dark ? "#F1EFE8" : INK;
-  for (const id of ["graticule", "borders", "coast"]) if (m.getLayer(id)) m.setPaintProperty(id, "line-color", c);
+  m.addLayer({ id: "coast", type: "line", source: "coast", paint: { "line-color": FG, "line-opacity": 0.5, "line-width": ["interpolate", ["linear"], ["zoom"], 1, 0.55, 6, 1] } }, before);
 }
 
 /** Put a raster layer in a named slot (or clear the slot). Slots keep the drawing order fixed. */
@@ -81,7 +78,7 @@ function renderHeat(grid: Float32Array, w: number, h: number, rampName: string, 
       t = (k + 0.5) / classes.length;
     }
     const [r, g, b] = ramp(rampName, 0.04 + 0.96 * t);
-    lut[i * 4] = r; lut[i * 4 + 1] = g; lut[i * 4 + 2] = b; lut[i * 4 + 3] = classes ? 232 : 255 * (0.55 + 0.45 * t);
+    lut[i * 4] = r; lut[i * 4 + 1] = g; lut[i * 4 + 2] = b; lut[i * 4 + 3] = classes ? 218 : 255 * (0.55 + 0.45 * t);
   }
   const span = hi - lo || 1;
   let painted = 0;
@@ -102,19 +99,19 @@ function renderHeat(grid: Float32Array, w: number, h: number, rampName: string, 
 }
 
 /* ------------------------------------------------------------------ site symbols */
-// Shape says what the site is; ink fill says how far to trust it. Colour is left to the similarity layer.
+// Shape says what the site is; fill says how far to trust it. Colour is left to the similarity layer.
 //   circle = candidate from the scan      square = established analog
 //   solid = high confidence   half = moderate   open = low
 export function siteSymbol(kind: "known" | "candidate", conf: string, px = 15): string {
   const s = px, c = s / 2, r = s / 2 - 2.2;
   const shape = (fill: string) => kind === "known"
-    ? `<rect x="${c - r}" y="${c - r}" width="${2 * r}" height="${2 * r}" fill="${fill}" stroke="${INK}" stroke-width="1.5"/>`
-    : `<circle cx="${c}" cy="${c}" r="${r}" fill="${fill}" stroke="${INK}" stroke-width="1.5"/>`;
+    ? `<rect x="${c - r}" y="${c - r}" width="${2 * r}" height="${2 * r}" fill="${fill}" stroke="${FG}" stroke-width="1.5"/>`
+    : `<circle cx="${c}" cy="${c}" r="${r}" fill="${fill}" stroke="${FG}" stroke-width="1.5"/>`;
   const halo = kind === "known"
-    ? `<rect x="${c - r - 1.6}" y="${c - r - 1.6}" width="${2 * r + 3.2}" height="${2 * r + 3.2}" fill="${PAPER}"/>`
-    : `<circle cx="${c}" cy="${c}" r="${r + 1.7}" fill="${PAPER}"/>`;
+    ? `<rect x="${c - r - 1.6}" y="${c - r - 1.6}" width="${2 * r + 3.2}" height="${2 * r + 3.2}" fill="${BG}"/>`
+    : `<circle cx="${c}" cy="${c}" r="${r + 1.7}" fill="${BG}"/>`;
   const half = `<clipPath id="h"><rect x="0" y="${c}" width="${s}" height="${c}"/></clipPath>`;
-  const body = conf === "high" ? shape(INK) : conf === "moderate" ? shape(PAPER) + `<g clip-path="url(#h)">${shape(INK)}</g>` : shape(PAPER);
+  const body = conf === "high" ? shape(FG) : conf === "moderate" ? shape(BG) + `<g clip-path="url(#h)">${shape(FG)}</g>` : shape(BG);
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">${half}${halo}${body}</svg>`;
 }
 async function addSiteImages(m: maplibregl.Map) {
@@ -170,10 +167,15 @@ export function MapBusy({ map }: { map: maplibregl.Map | null }) {
   return busy ? <div className="mapbusy" role="status">Loading map tiles</div> : null;
 }
 
+/** Corner crosses that mark the edge of the frame, as on a survey photograph. */
+function Fiducials() {
+  return <div className="fiducials" aria-hidden="true"><i /><i /><i /><i /></div>;
+}
+
 export function NorthArrow() {
   return (
     <svg className="north" width="22" height="34" viewBox="0 0 22 34" role="img" aria-label="North is up">
-      <path d="M11 2 L17 22 L11 18 L5 22 Z" fill={INK} stroke={PAPER} strokeWidth="1" />
+      <path d="M11 2 L17 22 L11 18 L5 22 Z" fill={FG} stroke={BG} strokeWidth="1" />
       <text x="11" y="32" textAnchor="middle">N</text>
     </svg>
   );
@@ -222,7 +224,6 @@ export function MapView(p: Props) {
   const regions = useRef<Region[]>([]);
   const heatUrl = useRef<string | null>(null);
   const heatJob = useRef(0);
-  const isDark = !!earthLayer(p.base)?.dark;
 
   const syncHeat = () => {
     const m = map.current, q = latest.current;
@@ -305,12 +306,11 @@ export function MapView(p: Props) {
     const base = earthLayer(q.base);
     const atlas = !base || base.id === "atlas";
     for (const id of ["relief-tint", "relief-shade"]) m.setLayoutProperty(id, "visibility", atlas ? "visible" : "none");
-    m.setPaintProperty("bg", "background-color", atlas ? SEA : "#0f1412");
+    m.setPaintProperty("bg", "background-color", atlas ? SEA : "#05080F");
     setRasterSlot(m, "base", atlas ? null : base!, q.baseDate, { "raster-saturation": q.showOverlay ? -0.35 : 0, "raster-brightness-max": q.showOverlay ? 0.82 : 1 });
     setRasterSlot(m, "geology", q.refs.geology ? earthLayer("geology")! : null, "", { "raster-opacity": 0.62 });
     const obs = earthLayer(q.obs);
     setRasterSlot(m, "obs", obs ?? null, q.obsDate, { "raster-opacity": q.obsOpacity, "raster-resampling": obs && obs.maxzoom <= 7 ? "nearest" : "linear" });
-    tintReferenceLayers(m, !atlas);
     m.setLayoutProperty("graticule", "visibility", q.refs.graticule ? "visible" : "none");
     m.setLayoutProperty("coast", "visibility", q.refs.coast ? "visible" : "none");
     m.setLayoutProperty("borders", "visibility", q.refs.borders ? "visible" : "none");
@@ -335,7 +335,7 @@ export function MapView(p: Props) {
       m.addLayer({ id: "heat", type: "raster", source: "heat", paint: { "raster-opacity": latest.current.overlayOpacity, "raster-resampling": "nearest", "raster-fade-duration": 0 } });
       addReferenceLayers(m);
       m.addSource("cell", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-      m.addLayer({ id: "cell", type: "line", source: "cell", paint: { "line-color": ["case", ["==", ["get", "pin"], 1], INK, "#ffffff"], "line-width": ["case", ["==", ["get", "pin"], 1], 2, 1.2] } });
+      m.addLayer({ id: "cell", type: "line", source: "cell", paint: { "line-color": ["case", ["==", ["get", "pin"], 1], FG, "#A9B4C2"], "line-width": ["case", ["==", ["get", "pin"], 1], 2, 1.1] } });
       m.addSource("sites", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       await addSiteImages(m);
       if (!map.current) return;
@@ -426,8 +426,9 @@ export function MapView(p: Props) {
   };
 
   return (
-    <div className={`mapframe ${isDark ? "dark" : ""}`}>
+    <div className="mapframe well">
       <div ref={el} className="map" />
+      <Fiducials />
       <div className="mapctl" role="group" aria-label="Map view">
         <button onClick={() => map.current?.zoomIn()} aria-label="Zoom in" title="Zoom in">+</button>
         <button onClick={() => map.current?.zoomOut()} aria-label="Zoom out" title="Zoom out">−</button>

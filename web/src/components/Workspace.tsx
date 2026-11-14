@@ -37,11 +37,11 @@ export function Legend({ title, unitLabel, classes, classed, rampName, domain, d
           <div className="legendticks"><span>{fmt(domain[0], 2)}</span><span>{unitLabel}</span><span>{fmt(domain[1], 2)}</span></div>
           {hist.length > 0 && (
             <svg className="hist" viewBox="0 0 168 30" preserveAspectRatio="none" role="img" aria-label="How land area is spread across scores">
-              {hist.map((v, i) => { const x0 = (i / hist.length) * hi; return <rect key={i} x={i * 3} y={30 - v * 28} width={2.4} height={v * 28} fill={x0 >= domain[0] ? "var(--ink)" : "var(--rule-strong)"} />; })}
-              {(classes ?? []).map((c) => <line key={c.top} x1={(c.lo / hi) * 168} x2={(c.lo / hi) * 168} y1={0} y2={30} stroke="var(--paper)" strokeWidth={0.8} />)}
+              {hist.map((v, i) => { const x0 = (i / hist.length) * hi; return <rect key={i} x={i * 3} y={30 - v * 28} width={2.4} height={v * 28} fill={x0 >= domain[0] ? "var(--fg)" : "var(--line-strong)"} />; })}
+              {(classes ?? []).map((c) => <line key={c.top} x1={(c.lo / hi) * 168} x2={(c.lo / hi) * 168} y1={0} y2={30} stroke="var(--bg)" strokeWidth={0.8} />)}
             </svg>
           )}
-          <p className="fine">Land area by score, 0 to {fmt(hi, 2)}. Dark bars are drawn on the map.</p>
+          <p className="fine">Land area by score, 0 to {fmt(hi, 2)}. Bright bars are drawn on the map.</p>
         </>
       ) : <p className="fine">The similarity layer is hidden. Turn it on under Map layers.</p>}
       {obs && (
@@ -53,7 +53,7 @@ export function Legend({ title, unitLabel, classes, classed, rampName, domain, d
       )}
       <div className="symkey">
         <span><SiteGlyph kind="candidate" conf="high" /> candidate</span><span><SiteGlyph kind="known" conf="high" /> established</span>
-        <span className="sep">ink fill is confidence:</span>
+        <span className="sep">fill is confidence:</span>
         <span><SiteGlyph kind="candidate" conf="high" /> high</span><span><SiteGlyph kind="candidate" conf="moderate" /> moderate</span><span><SiteGlyph kind="candidate" conf="low" /> low</span>
       </div>
     </aside>
@@ -64,22 +64,38 @@ export function Legend({ title, unitLabel, classes, classed, rampName, domain, d
 export function ProbeBar({ b, target, grids, overall, dist, gw, gh, sites, onOpen }:
   { b: Bundle; target: Target; grids: Partial<Record<FactorId, Float32Array>> | null; overall: Float32Array | null; dist: Distribution | null; gw: number; gh: number; sites: Site[]; onOpen: (id: string) => void }) {
   const pr = useProbe();
-  if (!pr) return <div className="probe idle">Move over the map to read any land cell. Click to pin it. Click a site symbol to open its field report.</div>;
+  if (!pr) return (
+    <div className="probe idle" role="status">
+      <p>Move over the map to read any land cell. Click to pin it. Click a site symbol to open its field report.</p>
+    </div>
+  );
   const c = cellOf(pr.lat, pr.lon, b.meta.grid.deg);
   const v = overall ? cellValue(overall, gw, gh, pr.lat, pr.lon) : NaN;
   const land = Number.isFinite(v);
   const pct = land && dist ? dist.pct(v) : NaN;
   const near = pr.pinned ? sites.map((s) => ({ s, km: haversineKm(pr.lat, pr.lon, s.lat, s.lon) })).filter((x) => x.km < 45).sort((x, y) => x.km - y.km)[0] : undefined;
+  const th = b.meta.params.match_threshold;
   return (
     <div className={`probe ${pr.pinned ? "pinned" : ""}`} role="status">
-      <span className="num where">{ddPair(pr.lat, pr.lon, 2)}</span>
+      <div className="pf where"><span className="pk">{pr.pinned ? "Pinned cell" : "Cursor"}</span><span className="pv num">{ddPair(pr.lat, pr.lon, 2)}</span></div>
       {land ? (
         <>
-          <span className="what"><b className="num">{fmt(v, 2)}</b> similarity to {target.name}{Number.isFinite(pct) ? <>, <span className="num">{pct >= 99.95 ? "top 0.1" : `top ${(100 - pct).toFixed(pct > 99 ? 1 : 0)}`}%</span> of land</> : null}</span>
-          <span className="dims">{target.factors.map((k) => { const g = grids?.[k]; const x = g ? cellValue(g, gw, gh, pr.lat, pr.lon) : NaN; return <span key={k}>{b.meta.factors.find((f) => f.id === k)!.label} <b className="num">{Number.isFinite(x) ? x.toFixed(2) : "–"}</b></span>; })}</span>
+          <div className="pf what">
+            <span className="pk">similarity to {target.name}</span>
+            <span className="pv"><b className="num">{fmt(v, 2)}</b>{Number.isFinite(pct) ? <span className="pct"> <span className="num">{pct >= 99.95 ? "top 0.1" : `top ${(100 - pct).toFixed(pct > 99 ? 1 : 0)}`}%</span> of land</span> : null}</span>
+          </div>
+          <div className="dims">{target.factors.map((k) => {
+            const g = grids?.[k]; const x = g ? cellValue(g, gw, gh, pr.lat, pr.lon) : NaN; const ok = Number.isFinite(x);
+            return (
+              <span key={k} className={ok && x >= th ? "dm on" : "dm"}>
+                <em>{b.meta.factors.find((f) => f.id === k)!.label}</em> <b className="num">{ok ? x.toFixed(2) : "–"}</b>
+                <i aria-hidden="true"><s style={{ width: `${ok ? x * 100 : 0}%` }} /><u style={{ left: `${th * 100}%` }} /></i>
+              </span>
+            );
+          })}</div>
         </>
-      ) : <span className="what muted">No scored land in this cell (sea, or outside the land mask)</span>}
-      {pr.pinned && <span className="pinnote">Pinned cell {ddPair(c.lat, c.lon, 3)}{near ? <> · <button className="link" onClick={() => onOpen(near.s.id)}>{near.s.name.split(" · ")[0]} is {Math.round(near.km)} km away: open its report</button></> : <> · no listed site within 45 km, so no confidence value exists here</>}</span>}
+      ) : <div className="pf what"><span className="pk">no score</span><span className="pv nodata">No scored land in this cell (sea, or outside the land mask)</span></div>}
+      {pr.pinned && <p className="pinnote">Cell centre {ddPair(c.lat, c.lon, 3)}. {near ? <button className="link" onClick={() => onOpen(near.s.id)}>{near.s.name.split(" · ")[0]} is {Math.round(near.km)} km away: open its field report</button> : <>No listed site within 45 km, so no confidence value exists here.</>} Click the cell again to release it.</p>}
     </div>
   );
 }
@@ -95,14 +111,18 @@ export const DEFAULT_LAYERS: LayerState = {
   refs: { graticule: true, coast: true, borders: true, labels: true, geology: false },
 };
 
+export function Chevron({ dir }: { dir: "left" | "right" }) {
+  return <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d={dir === "left" ? "M6.5 1.5 3 5l3.5 3.5" : "M3.5 1.5 7 5 3.5 8.5"} fill="none" stroke="currentColor" strokeWidth="1.4" /></svg>;
+}
+
 function DateControl({ l, date, set }: { l: MapLayerDef; date: string; set: (d: string) => void }) {
   if (l.time === "static") return null;
   const step = l.time === "daily" ? "day" : l.time === "monthly" ? "month" : "year";
   return (
     <div className="datebar">
-      <button onClick={() => set(shiftDate(l, date, -1))} aria-label={`Previous ${step}`}>←</button>
+      <button onClick={() => set(shiftDate(l, date, -1))} aria-label={`Previous ${step}`}><Chevron dir="left" /></button>
       <input type="date" value={date} min={l.from} max={latestDate(l)} onChange={(e) => e.target.value && set(shiftDate(l, e.target.value, 0))} aria-label={`${l.name} date`} />
-      <button onClick={() => set(shiftDate(l, date, 1))} aria-label={`Next ${step}`}>→</button>
+      <button onClick={() => set(shiftDate(l, date, 1))} aria-label={`Next ${step}`}><Chevron dir="right" /></button>
       <span>{dateLabel(l, date)}</span>
     </div>
   );
@@ -136,7 +156,7 @@ export function LayerPanel({ s, set }: { s: LayerState; set: (patch: Partial<Lay
           <button aria-pressed={s.classed} onClick={() => set({ classed: true })}>Five classes</button>
           <button aria-pressed={!s.classed} onClick={() => set({ classed: false })}>Continuous</button>
         </div>
-        <label className="slider"><span>Opacity</span><input type="range" min={0.2} max={1} step={0.05} value={s.overlayOpacity} onChange={(e) => set({ overlayOpacity: +e.target.value })} aria-label="Similarity layer opacity" /><span className="num">{Math.round(s.overlayOpacity * 100)}%</span></label>
+        <label className="slider"><span>Opacity</span><input type="range" min={0.2} max={1} step={0.05} value={s.overlayOpacity} style={{ ["--v" as any]: `${((s.overlayOpacity - 0.2) / 0.8) * 100}%` }} onChange={(e) => set({ overlayOpacity: +e.target.value })} aria-label="Similarity layer opacity" /><span className="num">{Math.round(s.overlayOpacity * 100)}%</span></label>
       </fieldset>
 
       <fieldset>
@@ -156,7 +176,7 @@ export function LayerPanel({ s, set }: { s: LayerState; set: (patch: Partial<Lay
             {s.obs === l.id && (
               <div className="optbody">
                 <DateControl l={l} date={s.obsDate} set={(d) => set({ obsDate: d })} />
-                <label className="slider"><span>Opacity</span><input type="range" min={0.2} max={1} step={0.05} value={s.obsOpacity} onChange={(e) => set({ obsOpacity: +e.target.value })} aria-label="Observation layer opacity" /><span className="num">{Math.round(s.obsOpacity * 100)}%</span></label>
+                <label className="slider"><span>Opacity</span><input type="range" min={0.2} max={1} step={0.05} value={s.obsOpacity} style={{ ["--v" as any]: `${((s.obsOpacity - 0.2) / 0.8) * 100}%` }} onChange={(e) => set({ obsOpacity: +e.target.value })} aria-label="Observation layer opacity" /><span className="num">{Math.round(s.obsOpacity * 100)}%</span></label>
                 <Facts l={l} />
               </div>
             )}
@@ -189,7 +209,7 @@ export function attribution(s: LayerState, landCells: number, deg: number) {
   if (obs) parts.push(`Overlay: ${obs.attribution}`);
   if (s.refs.geology) parts.push(earthLayer("geology")!.attribution);
   if (s.refs.coast || s.refs.borders || s.refs.labels) parts.push("Natural Earth");
-  return parts.join(" · ");
+  return parts.join("; ");
 }
 
 export { ConfMark };

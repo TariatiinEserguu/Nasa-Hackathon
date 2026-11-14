@@ -31,8 +31,6 @@ export interface MapLayerDef {
   /** Does the scoring pipeline read the same product (as numbers, not as this picture)? */
   scored?: string;
   limits: string;
-  /** True when the tone of the picture is dark enough to need the light-on-dark similarity ramp. */
-  dark?: boolean;
   /** Earliest date the service holds. */
   from?: string;
   /** Typical delay before a date is available, in days. */
@@ -63,7 +61,7 @@ export const EARTH_LAYERS: MapLayerDef[] = [
     info: "https://registry.opendata.aws/terrain-tiles/",
   },
   {
-    id: "s2", role: "base", name: "Sentinel-2 cloudless", dark: true,
+    id: "s2", role: "base", name: "Sentinel-2 cloudless",
     purpose: "True-colour ground detail down to field scale: lava flows, dunes, playas, snow.",
     source: "EOX IT Services", product: "Sentinel-2 MSI Level-2A, cloud-free annual composite", resolution: "10 m", units: "True colour (red, green, blue reflectance)",
     time: "static", period: "Composite of 2020 acquisitions",
@@ -72,14 +70,14 @@ export const EARTH_LAYERS: MapLayerDef[] = [
     limits: "A mosaic of many dates. Snow lines and seasonal colour are not from a single day.", info: "https://s2maps.eu",
   },
   {
-    id: "bluemarble", role: "base", name: "Blue Marble with relief", dark: true,
+    id: "bluemarble", role: "base", name: "Blue Marble with relief",
     purpose: "A calm global picture of land cover, relief and sea floor for small-scale views.",
     source: GIBS_ATTR, product: "MODIS Blue Marble Next Generation with shaded relief and bathymetry", resolution: "500 m", units: "True colour with added hill shading",
     time: "static", period: "Composite, 2004", tiles: gibs("BlueMarble_ShadedRelief_Bathymetry", "Level8", "jpeg", false), maxzoom: 8, attribution: GIBS_ATTR + " · Blue Marble (NASA Earth Observatory)",
     limits: "Too coarse below about 1 km. A 2004 composite, so it does not show recent change.", info: "https://nasa-gibs.github.io/gibs-api-docs/",
   },
   {
-    id: "modis", role: "base", name: "MODIS true colour, by day", dark: true,
+    id: "modis", role: "base", name: "MODIS true colour, by day",
     purpose: "What the surface and the weather over it looked like on one chosen day, back to 2000.",
     source: GIBS_ATTR, product: "Terra MODIS corrected reflectance, bands 1-4-3", resolution: "250 m", units: "True colour (corrected reflectance, not surface reflectance)",
     time: "daily", period: "Daily since 24 Feb 2000", from: "2000-02-24", lagDays: 1,

@@ -6,8 +6,8 @@ NASA Space Apps Challenge 2026 · *Identify Earth Locations that Analog Permanen
 Planetary Twin scores all 341,040 land cells of a 0.25° global grid against 13 named regions of the Moon and Mars
 (Jezero, Gale, Shackleton, Mare Tranquillitatis and nine more), using real, public NASA / ESA / NOAA data for terrain,
 temperature, moisture, surface and atmosphere, then checks the leading candidates against independent geological maps.
-The result is an interactive field atlas in which every number can be traced to its dataset, and in which similarity
-and confidence are reported separately: similarity in colour, confidence in ink.
+The result is an interactive research instrument in which every number can be traced to its dataset, and in which
+similarity and confidence are reported separately: similarity in colour, confidence as a fill.
 
 ![Explore view](docs/img/explore.jpg)
 
@@ -63,7 +63,7 @@ Deep links work, for example `#/explore?t=tranquillitatis&s=c117` opens the Harr
   every map layer that is shown but not scored, the outside sources that were examined and what was decided for each,
   and the limits of the work.
 
-The visual system (Field Atlas) is documented in [`DESIGN.md`](DESIGN.md).
+The visual system (Observatory) is documented in [`DESIGN.md`](DESIGN.md).
 
 | Field report | Map layers |
 |---|---|
@@ -166,7 +166,7 @@ web/        interactive application (React + TypeScript + MapLibre GL, Vite)
 web/public/data, web/public/img   committed pipeline outputs used by the app
 tests/      browser end-to-end checks
 docs/       presentation, screenshots and the data-source assessment (DATA_SOURCES.md)
-DESIGN.md   the Field Atlas design system as implemented
+DESIGN.md   the Observatory design system as implemented
 PROGRESS.md decisions, findings, limitations
 ```
 

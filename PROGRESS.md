@@ -19,6 +19,9 @@ Last updated: 2026-11-14
 - [x] Web application: Explore, Site dossier, Findings, Portfolio, Method & data. Responsive.
 - [x] Tests: 10 pipeline checks, 90 browser end-to-end checks (the original set plus cartography and layout checks).
 - [x] Field Atlas redesign: paper-and-ink identity, one composition per section, design system in `DESIGN.md`.
+- [x] Observatory redesign (2026-11-14): dark instrument identity, map as a full-bleed well, Archivo and Source Serif 4,
+      fixed-height readout console, report section index, evidence charts on Findings, typeset formulas, one-panel-at-a-time
+      layout on phones. Scoring, data, routes and deep links unchanged. `DESIGN.md` rewritten.
 - [x] Cartography: classed similarity layer with numeric legend and histogram, cursor readout and pinned cells,
       coordinate navigation, globe / flat views, relief basemap, layer panel with 16 Earth layers, site maps with the
       scored window, interactive Moon and Mars maps (9 layers), equal-area portfolio map.
@@ -60,11 +63,16 @@ Last updated: 2026-11-14
 | Place labels from Natural Earth plus a four-entry gazetteer | Labels only, applied after scoring. |
 | Outside map layers are display-only | A tile is a colour-mapped, resampled picture. Reading it as data would add false precision; the pipeline decodes scored products separately. |
 | No new dataset entered the score | Each candidate failed at least one test: belongs to a scored dimension, comparable between Earth and the Moon or Mars, reachable without credentials. |
-| Confidence drawn as ink fill, similarity as colour | The two were both shown as coloured dots before and could be read as one scale. |
+| Confidence drawn as a fill, similarity as colour | The two were both shown as coloured dots before and could be read as one scale. |
 | Similarity shown in five classes by share of land | Class limits with printed score ranges can be read off the map; a continuous ramp cannot. The continuous style is kept as an option. |
 | Radar shown only as a terrain-corrected product, never scored | Backscatter mixes roughness, moisture, slope and geometry; it is not a measure of rock type and has no like-for-like planetary counterpart. |
 | Moon and Mars tiles re-projected in the browser | NASA Treks serves plate-carrée tiles; the map library needs Web Mercator. Scale bars use each body's radius. |
 | Empty similarity layer is hidden, not swapped for a placeholder | The original placeholder pixel was half-transparent blue and could win a loading race, tinting the whole map. |
+| Dark interface, every basemap dark, one similarity ramp per body | The globe is the subject; a dark well makes the similarity layer the brightest thing on screen. With no light basemap left, the second (light-ground) ramp per body was removed. |
+| Moon ramp starts in slate teal, not navy | A navy low end matched the sea, so weak land cells read as water. |
+| Readout console has a fixed height on wide screens | When it grew on hover the map shrank under the cursor, fired a mouseout and reset the reading. |
+| Site tooltip ignores the pointer | A tooltip that can sit under the cursor takes hover away from the map. |
+| No monospace face; Archivo tabular figures for numbers | One family with a width axis carries names, figures and controls; numbers still line up. |
 
 ## Known limitations
 

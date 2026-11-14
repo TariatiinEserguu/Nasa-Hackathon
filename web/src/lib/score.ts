@@ -99,17 +99,16 @@ export function cellValue(grid: Float32Array, w: number, h: number, lat: number,
 }
 
 // ---- colour ramps ----
-// Two polarities per body, both ordered in lightness so they survive greyscale and colour-blind viewing.
-//   mars / moon        dark -> light, for dark imagery basemaps (high similarity glows)
-//   marsInk / moonInk  light -> dark, for the paper relief basemap (high similarity is the deepest ink)
+// One ramp per body, ordered in lightness so it survives greyscale and colour-blind viewing.
+// Every basemap in the observatory is dark, so the strongest match is always the brightest cell.
+//   mars   oxblood -> copper -> apricot -> ivory
+//   moon   slate teal -> ice blue -> near white (the low end stays clear of the navy sea)
 type Stop = [number, number, number];
 const RAMPS: Record<string, Stop[]> = {
-  mars: [[38, 12, 46], [92, 22, 72], [152, 40, 70], [205, 76, 52], [240, 132, 44], [250, 196, 86], [252, 247, 196]],
-  moon: [[12, 22, 46], [26, 52, 92], [36, 94, 126], [52, 140, 150], [98, 186, 168], [170, 222, 190], [236, 250, 226]],
-  marsInk: [[240, 222, 178], [229, 190, 132], [213, 151, 96], [190, 112, 72], [158, 76, 52], [118, 46, 38], [72, 22, 28]],
-  moonInk: [[220, 226, 242], [186, 198, 230], [148, 166, 212], [112, 132, 188], [80, 100, 158], [54, 70, 124], [30, 40, 86]],
+  mars: [[62, 26, 24], [106, 40, 30], [160, 66, 38], [208, 104, 56], [236, 152, 96], [247, 198, 148], [253, 236, 208]],
+  moon: [[34, 60, 68], [44, 90, 106], [58, 126, 148], [86, 164, 190], [138, 200, 224], [198, 230, 242], [244, 250, 252]],
 };
-export const rampFor = (body: string, darkBase: boolean) => (darkBase ? body : `${body}Ink`);
+export const rampFor = (body: string) => (RAMPS[body] ? body : "mars");
 export function ramp(name: string, t: number): Stop {
   const st = RAMPS[name] ?? RAMPS.mars;
   const x = Math.max(0, Math.min(1, t)) * (st.length - 1);

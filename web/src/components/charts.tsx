@@ -1,8 +1,10 @@
 import { useEffect, useRef } from "react";
 import type { Site, Target } from "../lib/data";
 
-// Body colours of the Field Atlas palette: lichen for Earth, oxidised copper for Mars, mare slate for the Moon.
-const C = { earth: "#5F6B4A", mars: "#B66B48", moon: "#55697C" };
+// Body colours of the observatory palette: mineral green for Earth, oxidised copper for Mars, ice blue for the Moon.
+// They match --earth, --mars and --moon in styles.css.
+const C = { earth: "#86A57F", mars: "#D0713F", moon: "#7FBAD3" };
+const FG = "#ECE5D6", NOTE = "#8C95A5";
 export const bodyColor = (b: string) => (C as any)[b] ?? "#ccc";
 
 /** Shaded relief drawn from the same 32 x 32 elevation window the algorithm scores.
@@ -47,7 +49,7 @@ export function Relief({ win, stepKm, exag, tint }: { win: number[][]; stepKm: n
   return <canvas ref={ref} aria-label="Shaded relief of the terrain analysis window" />;
 }
 
-export const TINT: Record<string, [number, number, number]> = { earth: [226, 228, 208], mars: [240, 204, 174], moon: [218, 224, 230] };
+export const TINT: Record<string, [number, number, number]> = { earth: [206, 214, 190], mars: [236, 188, 152], moon: [200, 218, 230] };
 
 export function reliefExag(a: number[][], b: number[][]) {
   const range = (w: number[][]) => { let lo = Infinity, hi = -Infinity; for (const r of w) for (const v of r) { lo = Math.min(lo, v); hi = Math.max(hi, v); } return hi - lo; };
@@ -139,7 +141,7 @@ export function ThermalChart({ target, site }: { target: Target; site: Site }) {
     <>
       <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Temperature comparison">
         {ticks(lo, hi, 5).map((t) => (<g key={t}><line className="grid" x1={L} x2={W - R} y1={y(t)} y2={y(t)} /><text x={L - 6} y={y(t) + 3} textAnchor="end">{t}</text></g>))}
-        {lo < 273.15 && hi > 273.15 && (<g><line x1={L} x2={W - 6} y1={y(273.15)} y2={y(273.15)} stroke="#8a8c80" strokeDasharray="2 3" /><text x={L + 4} y={y(273.15) - 3}>0 °C</text></g>)}
+        {lo < 273.15 && hi > 273.15 && (<g><line x1={L} x2={W - 6} y1={y(273.15)} y2={y(273.15)} stroke={NOTE} strokeDasharray="2 3" /><text x={L + 4} y={y(273.15) - 3}>0 °C</text></g>)}
         {[0, 6, 12, 18, 24].map((h) => (<text key={h} x={x(h)} y={H - 7} textAnchor="middle">{String(h).padStart(2, "0")}h</text>))}
         <text x={4} y={T + 6}>K</text>
         {curves.map((c, i) => (
@@ -147,9 +149,9 @@ export function ThermalChart({ target, site }: { target: Target; site: Site }) {
         ))}
         {/* envelopes */}
         <line x1={bx} x2={bx} y1={y(pHi)} y2={y(pLo)} stroke={cb} strokeWidth={7} opacity={0.75} />
-        <line x1={bx - 7} x2={bx + 7} y1={y(pMean)} y2={y(pMean)} stroke="#202622" strokeWidth={1.5} />
+        <line x1={bx - 7} x2={bx + 7} y1={y(pMean)} y2={y(pMean)} stroke={FG} strokeWidth={1.5} />
         <line x1={bx + 34} x2={bx + 34} y1={y(eHi)} y2={y(eLo)} stroke={C.earth} strokeWidth={7} opacity={0.8} />
-        <line x1={bx + 27} x2={bx + 41} y1={y(eMean)} y2={y(eMean)} stroke="#202622" strokeWidth={1.5} />
+        <line x1={bx + 27} x2={bx + 41} y1={y(eMean)} y2={y(eMean)} stroke={FG} strokeWidth={1.5} />
         <text x={bx} y={H - 7} textAnchor="middle">{target.body === "mars" ? "Mars" : "Moon"}</text>
         <text x={bx + 34} y={H - 7} textAnchor="middle">Earth</text>
       </svg>

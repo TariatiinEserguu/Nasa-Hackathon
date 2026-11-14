@@ -4,7 +4,8 @@ import type { Body, Target } from "../lib/data";
 import { bodyLayers, dateLabel, earthLayer, latestDate, shiftDate, TREK_ATTR, type BodyLayerDef } from "../lib/layers";
 import { registerTrek, trekTemplate } from "../lib/trek";
 import { EE_H, EE_W, ddPair, equalEarth, graticule, loadLand, ortho, windowRing } from "../lib/geo";
-import { INK, MapBusy, NorthArrow, PAPER, ScaleBar, addReferenceLayers, atlasStyleParts, setRasterSlot, tintReferenceLayers } from "./MapView";
+import { Chevron } from "./Workspace";
+import { BG, FG, MapBusy, NorthArrow, ScaleBar, addReferenceLayers, atlasStyleParts, setRasterSlot } from "./MapView";
 
 /* ================================================================== SVG locator globe */
 export interface Mark { lat: number; lon: number; label?: string; on?: boolean; id?: string; title?: string }
@@ -52,14 +53,14 @@ export function Locator({ lat, lon, size = 120, body = "earth", marks = [], onPi
     for (let la = -60; la <= 60; la += 30) line(Array.from({ length: 73 }, (_, i) => [la, -180 + i * 5] as [number, number]));
     return d;
   }, [lat0, lon0, size]);
-  const fill = body === "earth" ? "var(--sea)" : body === "mars" ? "color-mix(in srgb, var(--mars) 22%, var(--paper))" : "color-mix(in srgb, var(--moon) 22%, var(--paper))";
+  const fill = body === "earth" ? "var(--sea)" : body === "mars" ? "color-mix(in srgb, var(--mars) 30%, var(--bg))" : "color-mix(in srgb, var(--moon) 26%, var(--bg))";
   return (
     <figure className="locator" style={{ width: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={caption ?? `Location on ${body}`}>
         <circle cx={C} cy={C} r={R} fill={fill} />
         {landPath && <path d={landPath} fill="var(--land)" />}
-        <path d={grat} fill="none" stroke="var(--ink)" strokeOpacity={body === "earth" ? 0.16 : 0.26} strokeWidth={0.6} />
-        <circle cx={C} cy={C} r={R} fill="none" stroke="var(--ink)" strokeWidth={1} />
+        <path d={grat} fill="none" stroke="var(--fg)" strokeOpacity={body === "earth" ? 0.14 : 0.22} strokeWidth={0.6} />
+        <circle cx={C} cy={C} r={R} fill="none" stroke="var(--silver)" strokeWidth={1} />
         {marks.map((m, i) => {
           const q = P(m.lat, m.lon, false);
           if (!q) return null;
@@ -67,8 +68,8 @@ export function Locator({ lat, lon, size = 120, body = "earth", marks = [], onPi
             <g key={m.id ?? i} className={`lmark ${m.on ? "on" : ""} ${onPick && m.id ? "pick" : ""}`} onClick={onPick && m.id ? () => onPick(m.id!) : undefined}>
               <title>{m.title ?? m.label ?? ""}</title>
               {onPick && <circle cx={q[0]} cy={q[1]} r={9} fill="transparent" />}
-              {m.on && <circle cx={q[0]} cy={q[1]} r={6.5} fill="none" stroke="var(--ink)" strokeWidth={1} />}
-              <circle cx={q[0]} cy={q[1]} r={m.on ? 3 : 2.4} fill={m.on ? "var(--accent)" : "var(--paper)"} stroke="var(--ink)" strokeWidth={1.1} />
+              {m.on && <circle cx={q[0]} cy={q[1]} r={6.5} fill="none" stroke="var(--fg)" strokeWidth={1} />}
+              <circle cx={q[0]} cy={q[1]} r={m.on ? 3 : 2.4} fill={m.on ? "var(--accent)" : "var(--bg)"} stroke="var(--fg)" strokeWidth={1.1} />
               {m.label && <text x={q[0] + 7} y={q[1] + 3.5}>{m.label}</text>}
             </g>
           );
@@ -129,18 +130,18 @@ export function WorldMap({ marks, minor = [], hover, onHover, onPick, lines = []
   return (
     <svg className="worldmap" viewBox={`-6 -6 ${W + 12} ${H + 12}`} role="img" aria-label="World map of the portfolio sites, Equal Earth projection">
       <path d={edge} fill="var(--sea)" />
-      <path d={landPath} fill="var(--land)" stroke="var(--ink)" strokeOpacity={0.35} strokeWidth={0.5} />
-      <path d={grat} fill="none" stroke="var(--ink)" strokeOpacity={0.13} strokeWidth={0.6} />
-      <path d={edge} fill="none" stroke="var(--ink)" strokeWidth={1} />
+      <path d={landPath} fill="var(--land)" stroke="var(--fg)" strokeOpacity={0.3} strokeWidth={0.5} />
+      <path d={grat} fill="none" stroke="var(--fg)" strokeOpacity={0.09} strokeWidth={0.6} />
+      <path d={edge} fill="none" stroke="var(--silver)" strokeWidth={1} />
       {[-60, -30, 0, 30, 60].map((la) => { const q = P(la, -180); return <text key={la} className="wm-tick" x={q[0] - 5} y={q[1] + 3} textAnchor="end">{Math.abs(la)}°{la > 0 ? "N" : la < 0 ? "S" : ""}</text>; })}
-      {minor.map((m, i) => { const q = P(m.lat, m.lon); return <circle key={i} cx={q[0]} cy={q[1]} r={1.8} fill="var(--ink)" fillOpacity={0.3}><title>{m.title}</title></circle>; })}
+      {minor.map((m, i) => { const q = P(m.lat, m.lon); return <circle key={i} cx={q[0]} cy={q[1]} r={1.9} fill="var(--fg)" fillOpacity={0.34}><title>{m.title}</title></circle>; })}
       {marks.map((m, i) => {
         const q = P(m.lat, m.lon), on = hover === m.id, pl = placed[i];
         return (
           <g key={m.id} className={`wm-site ${on ? "on" : ""}`} onMouseEnter={() => onHover(m.id!)} onMouseLeave={() => onHover(null)} onFocus={() => onHover(m.id!)} onBlur={() => onHover(null)}
             onClick={() => onPick(m.id!)} onKeyDown={(e) => { if (e.key === "Enter") onPick(m.id!); }} tabIndex={0} role="button" aria-label={`${m.letter}: ${m.label}. Open field report.`}>
-            {pl.dy !== 0 && <line x1={q[0]} y1={q[1]} x2={pl.x + (pl.right ? -3 : 3)} y2={q[1] + pl.dy - 4} stroke="var(--ink)" strokeWidth={0.8} />}
-            <circle cx={q[0]} cy={q[1]} r={on ? 15 : 12} fill="var(--paper)" stroke="var(--ink)" strokeWidth={on ? 2 : 1.3} />
+            {pl.dy !== 0 && <line x1={q[0]} y1={q[1]} x2={pl.x + (pl.right ? -3 : 3)} y2={q[1] + pl.dy - 4} stroke="var(--silver)" strokeWidth={0.8} />}
+            <circle cx={q[0]} cy={q[1]} r={on ? 15 : 12} fill="var(--bg)" stroke="var(--fg)" strokeWidth={on ? 2 : 1.3} />
             <text className="wm-letter" x={q[0]} y={q[1] + 5} textAnchor="middle">{m.letter}</text>
             <text className="wm-name" x={pl.x} y={q[1] + pl.dy - 1} textAnchor={pl.right ? "start" : "end"}>{m.label}</text>
             {lines[i] && <text className="wm-sub" x={pl.x} y={q[1] + pl.dy + 13} textAnchor={pl.right ? "start" : "end"}>{lines[i]}</text>}
@@ -180,8 +181,8 @@ export function SiteMap({ lat, lon, name, halfKm, pass }: { lat: number; lon: nu
       addReferenceLayers(m);
       const ring = windowRing(lat, lon, halfKm);
       m.addSource("win", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: ring } } as any });
-      m.addLayer({ id: "win-halo", type: "line", source: "win", paint: { "line-color": PAPER, "line-width": 4, "line-opacity": 0.75 } });
-      m.addLayer({ id: "win", type: "line", source: "win", paint: { "line-color": INK, "line-width": 1.4 } });
+      m.addLayer({ id: "win-halo", type: "line", source: "win", paint: { "line-color": BG, "line-width": 4, "line-opacity": 0.8 } });
+      m.addLayer({ id: "win", type: "line", source: "win", paint: { "line-color": FG, "line-width": 1.4 } });
       const d = document.createElement("div");
       d.className = "reticle small";
       d.innerHTML = `<svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="5"/><path d="M15 1v8M15 21v8M1 15h8M21 15h8"/></svg>`;
@@ -197,7 +198,7 @@ export function SiteMap({ lat, lon, name, halfKm, pass }: { lat: number; lon: nu
     m.on("error", (e: any) => { if (e?.sourceId === "obs" || e?.sourceId === "base") setFailed(true); });
     const ro = new ResizeObserver(() => m.resize());
     ro.observe(el.current!);
-    return () => { ro.disconnect(); m.remove(); map.current = null; };
+    return () => { ro.disconnect(); m.remove(); map.current = null; if ((window as any).__ptSiteMap === m) delete (window as any).__ptSiteMap; };
   }, [lat, lon, halfKm]);
 
   useEffect(() => {
@@ -209,10 +210,6 @@ export function SiteMap({ lat, lon, name, halfKm, pass }: { lat: number; lon: nu
     setRasterSlot(m, "base", atlas ? null : earthLayer("s2")!, "");
     setRasterSlot(m, "geology", over === "geology" ? earthLayer("geology")! : null, "", { "raster-opacity": 0.7 });
     setRasterSlot(m, "obs", over === "hls" || over === "sar" ? earthLayer(over)! : null, date);
-    const dark = !atlas || over === "sar" || over === "hls";
-    tintReferenceLayers(m, dark);
-    m.setPaintProperty("win", "line-color", dark ? "#ffffff" : INK);
-    m.setPaintProperty("win-halo", "line-color", dark ? "#000000" : PAPER);
   }, [ready, base, over, date]);
 
   useEffect(() => { (ready as any)?.__fit?.(scope); }, [scope, ready]);
@@ -242,7 +239,7 @@ export function SiteMap({ lat, lon, name, halfKm, pass }: { lat: number; lon: nu
           <button aria-pressed={over === "sar"} onClick={() => pick("sar")}>Radar</button>
         </div>
       </div>
-      <div className={`mapframe mini ${base !== "atlas" || over === "sar" || over === "hls" ? "dark" : ""}`}>
+      <div className="mapframe mini">
         <div ref={el} className="map" aria-label={`Map of ${name}`} />
         <NorthArrow />
         <ScaleBar map={ready} />
@@ -251,9 +248,9 @@ export function SiteMap({ lat, lon, name, halfKm, pass }: { lat: number; lon: nu
       </div>
       {def && def.time !== "static" && (
         <div className="datebar">
-          <button onClick={() => setDate(shiftDate(def, date, -1))} aria-label="Previous day">←</button>
+          <button onClick={() => setDate(shiftDate(def, date, -1))} aria-label="Previous day"><Chevron dir="left" /></button>
           <input type="date" value={date} min={def.from} max={latestDate(def)} onChange={(e) => e.target.value && setDate(e.target.value)} aria-label="Acquisition date" />
-          <button onClick={() => setDate(shiftDate(def, date, 1))} aria-label="Next day">→</button>
+          <button onClick={() => setDate(shiftDate(def, date, 1))} aria-label="Next day"><Chevron dir="right" /></button>
           <span>{def.limits}</span>
         </div>
       )}
@@ -290,7 +287,7 @@ export function BodyMap({ body, targets, selected, onSelect, tall = false }:
     const m = new maplibregl.Map({
       container: el.current!, center: [sel.lon, Math.max(-78, Math.min(78, sel.lat))], zoom: Math.abs(sel.lat) > 80 ? 1.6 : 2.6, minZoom: 0.4, maxZoom: 9.5, attributionControl: false,
       dragRotate: false, pitchWithRotate: false, touchPitch: false, cooperativeGestures: true,
-      style: { version: 8, projection: { type: "globe" }, sources: {}, layers: [{ id: "bg", type: "background", paint: { "background-color": "#2b2d2a" } }], sky: { "atmosphere-blend": 0 } } as any,
+      style: { version: 8, projection: { type: "globe" }, sources: {}, layers: [{ id: "bg", type: "background", paint: { "background-color": "#1A2130" } }], sky: { "atmosphere-blend": 0 } } as any,
     });
     map.current = m;
     m.touchZoomRotate.disableRotation();
@@ -305,7 +302,7 @@ export function BodyMap({ body, targets, selected, onSelect, tall = false }:
     m.on("error", (e: any) => { if (e?.sourceId === "base") setFailed(true); });
     const ro = new ResizeObserver(() => m.resize());
     ro.observe(el.current!);
-    return () => { ro.disconnect(); m.remove(); map.current = null; setReady(null); };
+    return () => { ro.disconnect(); m.remove(); map.current = null; setReady(null); if ((window as any).__ptBodyMap === m) delete (window as any).__ptBodyMap; };
   }, [body]);
 
   useEffect(() => {
@@ -349,7 +346,7 @@ export function BodyMap({ body, targets, selected, onSelect, tall = false }:
           {overs.map((l) => <button key={l.id} aria-pressed={over === l.id} onClick={() => setOver(over === l.id ? null : l.id)} title={l.purpose}>{l.name}</button>)}
         </div>
       </div>
-      <div className={`mapframe mini body dark ${tall ? "tall" : ""}`}>
+      <div className={`mapframe mini body well ${tall ? "tall" : ""}`}>
         <div ref={el} className="map" aria-label={`Map of ${body === "mars" ? "Mars" : "the Moon"}`} />
         <ScaleBar map={ready} body={body} />
         <MapBusy map={ready} />

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useActiveSection } from "../lib/useActiveSection";
 import type { Bundle, FactorId, FeatureDef, Site, Target } from "../lib/data";
 import { asset } from "../lib/data";
 import { combine, fmt, smart, type Weights } from "../lib/score";
@@ -102,6 +103,10 @@ function Passes({ site, onShow }: { site: Site; onShow: (p: PassRequest) => void
   );
 }
 
+function Back() {
+  return <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M7.5 2 3.5 6l4 4" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>;
+}
+
 export function SiteDetail({ b, site, target, weights, pct, onBack, onTarget }:
   { b: Bundle; site: Site; target: Target; weights: Weights; pct: number; onBack: () => void; onTarget: (id: string) => void }) {
   const [view, setView] = useState<"image" | "relief">("image");
@@ -128,6 +133,12 @@ export function SiteDetail({ b, site, target, weights, pct, onBack, onTarget }:
   const polarTarget = Math.abs(target.lat) > 80;
   const targetImg = b.imagery.targets[target.id] ?? "";
   const polar = target.climate.kind === "moon" ? target.climate.polar : null;
+  const sections: [string, string][] = [
+    ["verdict", "Matches"], ["sitemap", "Site map"], ["imagery", "Imagery"], ["terrain", "Terrain"], ["thermal", "Thermal"], ["scores", "Scores"],
+    ["confidence", "Confidence"], ["geology", "Geology"], ["passes", "Satellite passes"], ["uses", "Uses"], ["reference", tBody], ["triptych", "Three bodies"],
+  ];
+  const active = useActiveSection(sections.map(([id]) => id));
+  const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ block: "start", behavior: "smooth" });
 
   const row = (fd: FeatureDef) => {
     const ev = f[SITE_KEY[fd.id]] as number | null, tk = TARGET_KEY[fd.id], tf = tk ? target.features[tk] : undefined;
@@ -146,8 +157,13 @@ export function SiteDetail({ b, site, target, weights, pct, onBack, onTarget }:
 
   return (
     <article className="report" data-body={target.body}>
+      <div className="dbar">
+        <button className="back" onClick={onBack} title={`Back to the ranking for ${target.name}`}><Back />Ranking</button>
+        <nav className="dindex" aria-label="Sections of this report">
+          {sections.map(([id, t]) => <a key={id} href={`#${id}`} aria-current={active === id ? "true" : undefined} onClick={(e) => { e.preventDefault(); jump(id); }}>{t}</a>)}
+        </nav>
+      </div>
       <header className="dhead">
-        <button className="back" onClick={onBack}>Back to the ranking for {target.name}</button>
         <div className="dtitle">
           <div>
             <p className="reportline">Field report {site.id.toUpperCase()}, compared with {target.name}, {tBody}</p>
@@ -162,7 +178,7 @@ export function SiteDetail({ b, site, target, weights, pct, onBack, onTarget }:
           <Locator lat={site.lat} lon={site.lon} size={104} marks={[{ lat: site.lat, lon: site.lon, on: true }]} />
         </div>
         <div className="kpis">
-          <div className="kpi"><div className="k">Similarity</div><div className="v" style={{ color: "var(--accent-ink)" }}>{fmt(overall, 2)}</div><div className="tiny muted">to {target.name}, 0 to 1</div></div>
+          <div className="kpi lead"><div className="k">Similarity to {target.name}</div><div className="v">{fmt(overall, 2)}</div><div className="tiny muted">0 to 1, current weights</div></div>
           <div className="kpi"><div className="k">Dimensions matched</div><div className="v">{sc.matched.length}<small> of {sc.expected.length}</small></div><Pips expected={sc.expected} matched={sc.matched} have={(k) => sc.fac[k as FactorId] != null} /></div>
           <div className="kpi"><div className="k">Earth rank</div><div className="v">{Number.isFinite(pct) ? <>{pct >= 99.95 ? "top 0.1" : `top ${(100 - pct).toFixed(pct > 99 ? 1 : 0)}`}<small>%</small></> : "—"}</div><div className="tiny muted">{Number.isFinite(pct) ? "of land, before geology" : "computing from the grid…"}</div></div>
           <div className="kpi"><div className="k">Confidence</div><div className="v conf-v"><ConfMark label={sc.conf.label} /></div><div className="tiny muted">coverage {Math.round(coverage * 100)}%, kept apart from similarity</div></div>
@@ -177,7 +193,7 @@ export function SiteDetail({ b, site, target, weights, pct, onBack, onTarget }:
         </div>
       )}
 
-      <div className="dsec verdict">
+      <div className="dsec verdict" id="verdict">
         <h3>What matches, what does not</h3>
         <div className="holdfail">
           <section>
@@ -194,12 +210,12 @@ export function SiteDetail({ b, site, target, weights, pct, onBack, onTarget }:
         </div>
       </div>
 
-      <div className="dsec">
+      <div className="dsec" id="sitemap">
         <h3>Site map</h3>
         <SiteMap key={site.id} lat={site.lat} lon={site.lon} name={site.name} halfKm={b.imagery.footprint_km / 2} pass={pass} />
       </div>
 
-      <div className="dsec">
+      <div className="dsec" id="imagery">
         <h3><span>Same footprint, same scale, {b.imagery.footprint_km.toFixed(0)} km across</span>
           <span className="tabs2"><button aria-pressed={view === "image"} onClick={() => setView("image")}>Imagery</button><button aria-pressed={view === "relief"} onClick={() => setView("relief")}>Relief</button></span></h3>
         <div className="twocol">
@@ -236,7 +252,7 @@ export function SiteDetail({ b, site, target, weights, pct, onBack, onTarget }:
         </table>
       </div>
 
-      <div className="dsec">
+      <div className="dsec" id="terrain">
         <h3>Terrain: elevation profile through the window centre</h3>
         <ProfileChart a={site.profile} b={target.profile} stepKm={b.meta.window.step_km} la={site.name} lb={target.name} cb={cb} />
         <h3 className="sub">Terrain: slope distribution</h3>
@@ -244,7 +260,7 @@ export function SiteDetail({ b, site, target, weights, pct, onBack, onTarget }:
         <p className="credit">Earth: NOAA ETOPO 2022 (1.85 km). {target.body === "mars" ? "Mars: MGS MOLA MEGDR 32 px/deg (1.85 km)." : "Moon: LRO LOLA LDEM 16 px/deg (1.90 km)."} Identical sampling on both bodies.</p>
       </div>
 
-      <div className="dsec">
+      <div className="dsec" id="thermal">
         <h3>Thermal, in kelvin</h3>
         <ThermalChart target={target} site={site} />
         <p className="credit">Earth: MERRA-2 skin temperature sharpened with MODIS LST ({site.sources?.thermal === "MODIS" ? "MODIS detail available" : "no MODIS detail here"}). {target.features.t_mean?.source}.</p>
@@ -264,7 +280,7 @@ export function SiteDetail({ b, site, target, weights, pct, onBack, onTarget }:
         )}
       </div>
 
-      <div className="dsec">
+      <div className="dsec" id="scores">
         <h3><span>Score breakdown</span><span>score 0 to 1</span></h3>
         {sc.expected.map((k) => (
           <div className="fac" key={k}>
@@ -287,18 +303,18 @@ export function SiteDetail({ b, site, target, weights, pct, onBack, onTarget }:
         <p className="note">The tick on each bar marks the match threshold ({TH}). Factors combine as a weighted geometric mean, so one failed dimension cannot be bought back by another.</p>
       </div>
 
-      <div className="dsec">
-        <h3>Confidence — kept separate from similarity</h3>
+      <div className="dsec" id="confidence">
+        <h3>Confidence, kept separate from similarity</h3>
         <div className="meters">
           <div className="meter"><div className="k">Evidence coverage</div><div className="v">{Math.round(sc.conf.coverage * 100)}%</div><div className="bar ink"><i style={{ width: `${sc.conf.coverage * 100}%` }} /></div><div className="tiny muted">share of the profile backed by data</div></div>
           <div className="meter"><div className="k">Evidence quality</div><div className="v">{fmt(sc.conf.evidence, 2)}</div><div className="bar ink"><i style={{ width: `${sc.conf.evidence * 100}%` }} /></div><div className="tiny muted">measured 1.0 · model 0.7 · proxy 0.5</div></div>
           <div className="meter"><div className="k">Rank stability</div><div className="v">{fmt(sc.conf.stability, 2)}</div><div className="bar ink"><i style={{ width: `${sc.conf.stability * 100}%` }} /></div><div className="tiny muted">percentile {fmt(sc.conf.pct_p10, 1)}–{fmt(sc.conf.pct_p90, 1)} over {b.meta.sensitivity.runs} perturbed runs</div></div>
         </div>
-        <p className="note">Confidence is the product of the three, here {fmt(sc.conf.value, 2)}: <ConfMark label={sc.conf.label} />. It is drawn in ink, never in the similarity colours, and it never changes the similarity number.</p>
+        <p className="note">Confidence is the product of the three, here {fmt(sc.conf.value, 2)}: <ConfMark label={sc.conf.label} />. It is drawn as a fill, never in the similarity colours, and it never changes the similarity number.</p>
         <p className="note">Cross-checks at this cell — temperature: MODIS {fmt(f.modis_t_mean, 0)} K vs MERRA-2 {fmt(f.merra_t_mean, 0)} K · precipitation: IMERG {smart(f.imerg_precip)} vs MERRA-2 {smart(f.merra_precip)} mm/yr · albedo: MODIS {fmt(f.modis_albedo, 2)} vs CERES {fmt(f.ceres_albedo, 2)}.</p>
       </div>
 
-      <div className="dsec">
+      <div className="dsec" id="geology">
         <h3>Geological context</h3>
         <p className="prose"><b>{target.name}:</b> {target.geology_note} <span className="dim">({target.geology_ref})</span></p>
         {site.geology?.units.length ? site.geology.units.slice(0, 3).map((u, i) => (
@@ -313,17 +329,17 @@ export function SiteDetail({ b, site, target, weights, pct, onBack, onTarget }:
 
       <Passes site={site} onShow={setPass} />
 
-      <div className="dsec">
+      <div className="dsec" id="uses">
         <h3>What this site could be used for</h3>
         <ul className="plain">{applications(site, target, sc.matched).map((a, i) => <li key={i}>{a}</li>)}</ul>
       </div>
 
-      <div className="dsec">
+      <div className="dsec" id="reference">
         <h3>{target.name} on {target.body === "mars" ? "Mars" : "the Moon"}</h3>
         <BodyMap body={target.body} targets={b.targets.filter((t) => t.body === target.body)} selected={target.id} onSelect={onTarget} />
       </div>
 
-      <div className="dsec">
+      <div className="dsec" id="triptych">
         <h3>Earth, Mars and the Moon at the same scale</h3>
         <div className="tri">
           {[{ body: "earth", name: site.name, win: site.window, t: null as Target | null }, { body: "mars", name: mars.name, win: mars.window, t: mars }, { body: "moon", name: moon.name, win: moon.window, t: moon }].map((c) => {
