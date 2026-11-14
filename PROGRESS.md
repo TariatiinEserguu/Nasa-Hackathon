@@ -1,6 +1,6 @@
 # PROGRESS — Planetary Twin
 
-Last updated: 2026-11-13
+Last updated: 2026-11-14
 
 ## Completed
 
@@ -17,7 +17,13 @@ Last updated: 2026-11-13
 - [x] Portfolio by greedy set cover with an explicit uncovered list.
 - [x] Three findings, each checked against independent literature.
 - [x] Web application: Explore, Site dossier, Findings, Portfolio, Method & data. Responsive.
-- [x] Tests: 10 pipeline checks, 22 browser end-to-end checks, all passing.
+- [x] Tests: 10 pipeline checks, 90 browser end-to-end checks (the original set plus cartography and layout checks).
+- [x] Field Atlas redesign: paper-and-ink identity, one composition per section, design system in `DESIGN.md`.
+- [x] Cartography: classed similarity layer with numeric legend and histogram, cursor readout and pinned cells,
+      coordinate navigation, globe / flat views, relief basemap, layer panel with 16 Earth layers, site maps with the
+      scored window, interactive Moon and Mars maps (9 layers), equal-area portfolio map.
+- [x] Data-source assessment (`docs/DATA_SOURCES.md`): 12 outside services examined; scoring unchanged.
+- [x] Lunar polar statistics from the Diviner Polar Resource Product, already computed, now shown in reports.
 - [x] Documentation and presentation.
 
 ## Research findings
@@ -52,6 +58,13 @@ Last updated: 2026-11-13
 | Geology only in the site tier, from Macrostrat | No global lithology raster was reachable without registration; a point lookup is also independent of the scan, so it doubles as verification. |
 | Diviner read by HTTP range request | The polar product is a 605 MB fixed-width table on a regular mesh; byte offsets give exactly the rows needed. |
 | Place labels from Natural Earth plus a four-entry gazetteer | Labels only, applied after scoring. |
+| Outside map layers are display-only | A tile is a colour-mapped, resampled picture. Reading it as data would add false precision; the pipeline decodes scored products separately. |
+| No new dataset entered the score | Each candidate failed at least one test: belongs to a scored dimension, comparable between Earth and the Moon or Mars, reachable without credentials. |
+| Confidence drawn as ink fill, similarity as colour | The two were both shown as coloured dots before and could be read as one scale. |
+| Similarity shown in five classes by share of land | Class limits with printed score ranges can be read off the map; a continuous ramp cannot. The continuous style is kept as an option. |
+| Radar shown only as a terrain-corrected product, never scored | Backscatter mixes roughness, moisture, slope and geometry; it is not a measure of rock type and has no like-for-like planetary counterpart. |
+| Moon and Mars tiles re-projected in the browser | NASA Treks serves plate-carrée tiles; the map library needs Web Mercator. Scale bars use each body's radius. |
+| Empty similarity layer is hidden, not swapped for a placeholder | The original placeholder pixel was half-transparent blue and could win a loading race, tinting the whole map. |
 
 ## Known limitations
 
@@ -65,6 +78,8 @@ Last updated: 2026-11-13
 
 ## Remaining / possible next steps
 
+- Independent cross-checks from the JAXA Earth API (GCOM-C temperature and NDVI, GSMaP rainfall) at listed sites.
+- Diviner high-resolution mosaics in place of the 0.5° bin for equatorial lunar regions, with re-validation.
 - Fine-scale tier (≤100 m DEM, rock abundance) for shortlisted sites.
 - Gridded lithology (GLiM) to bring geology into the global scan.
 - Field-accessibility layer (roads, altitude, permits) for an operations profile.

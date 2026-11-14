@@ -6,8 +6,8 @@ NASA Space Apps Challenge 2026 · *Identify Earth Locations that Analog Permanen
 Planetary Twin scores all 341,040 land cells of a 0.25° global grid against 13 named regions of the Moon and Mars
 (Jezero, Gale, Shackleton, Mare Tranquillitatis and nine more), using real, public NASA / ESA / NOAA data for terrain,
 temperature, moisture, surface and atmosphere, then checks the leading candidates against independent geological maps.
-The result is an interactive atlas in which every number can be traced to its dataset, and in which similarity and
-confidence are reported separately.
+The result is an interactive field atlas in which every number can be traced to its dataset, and in which similarity
+and confidence are reported separately: similarity in colour, confidence in ink.
 
 ![Explore view](docs/img/explore.jpg)
 
@@ -35,23 +35,41 @@ npm run dev          # http://localhost:5173
 # or: npm run build && npx vite preview
 ```
 
-Requires Node 18+. The basemap is fetched live (Sentinel-2 cloudless tiles); everything else is local.
+Requires Node 18+. All scores, rankings, charts and the similarity layer are local files. Map backgrounds and optional
+overlays are fetched live from open services that need no key (NASA GIBS, NASA Solar System Treks, EOX, Macrostrat,
+AWS Terrain Tiles, the Copernicus catalogue). If one of them is down the map says so and everything scored still works.
 
-Deep links work, for example `#/explore?t=tranquillitatis&s=c117` opens the Harrat Khaybar dossier.
+Deep links work, for example `#/explore?t=tranquillitatis&s=c117` opens the Harrat Khaybar field report, and
+`#/explore?t=gale&l=terrain&b=s2&o=ndvi` opens Gale Crater's terrain layer over Sentinel-2 with the vegetation overlay.
 
 ## What is in the app
 
-- **Explore** — a globe coloured by similarity to the selected reference region. Switch Moon / Mars, choose a mission
-  profile or drag the weights and the layer and ranking recompute in the browser. View any single dimension.
-  Filter established analogs against new candidates, and hide low-confidence results.
-- **Site dossier** — coordinates, same-scale imagery and shaded relief for the Earth site and the planetary region,
-  elevation profiles, slope distributions, temperature curves, a per-variable score table with units and sources,
-  confidence broken into coverage / evidence quality / rank stability, mapped geology, suggested uses, and an
-  Earth · Mars · Moon triptych.
+- **Explore** — the research workspace. A globe (or flat map) on which the best-scoring 30% of land is drawn in five
+  classes with their score ranges. Switch Moon / Mars, pick a reference region, choose a mission profile or drag the
+  weights: the layer, legend and ranking recompute in the browser. View any single dimension. Move over any land cell
+  to read its score, percentile and dimension scores; click to pin it; type coordinates to go there. Filter
+  established analogs against new candidates and set a minimum confidence. A layer panel offers four basemaps, eleven
+  dated observation overlays and five reference layers, each with its product, resolution, limits and source.
+- **Field report** (site dossier) — coordinates in two forms, what matches and what fails side by side, an interactive
+  site map with the 61 km scored window, geologic units, dated Sentinel-2 passes and Sentinel-1 radar, same-scale
+  imagery and shaded relief with a table of what is and is not comparable, elevation profiles, slope distributions,
+  temperature curves, a per-variable score table with units, sources and evidence kind, confidence broken into
+  coverage / evidence quality / rank stability, mapped geology, a live list of recent satellite passes, suggested uses,
+  an interactive map of the reference region on Mars or the Moon, and an Earth · Mars · Moon triptych.
 - **Findings** — the three results above with their evidence, plus the validation table.
-- **Portfolio** — the complementary site set, a coverage matrix, and what stays uncovered.
-- **Method & data** — formulas, tolerances, sensitivity results, all 17 datasets with resolution and limits, and the
-  limits of the work.
+- **Portfolio** — the complementary site set on an equal-area world map, a roster of what each site adds, the coverage
+  matrix, and what stays uncovered.
+- **Method & data** — formulas, tolerances, sensitivity results, all 17 scored datasets with resolution and limits,
+  every map layer that is shown but not scored, the outside sources that were examined and what was decided for each,
+  and the limits of the work.
+
+The visual system (Field Atlas) is documented in [`DESIGN.md`](DESIGN.md).
+
+| Field report | Map layers |
+|---|---|
+| ![Field report for Harrat Khaybar](docs/img/dossier.jpg) | ![Layer panel with a land surface temperature overlay](docs/img/layers.jpg) |
+| **Reference region on Mars** | **Portfolio** |
+| ![Interactive Mars map for Jezero Crater](docs/img/reference.jpg) | ![Portfolio world map](docs/img/portfolio.jpg) |
 
 ## Method in brief
 
@@ -89,7 +107,12 @@ All sources are public and need no login. Full provenance, resolution and limits
 | Moon | LRO LOLA LDEM 16 px/deg (PDS) | terrain | measured |
 | Moon | LRO Diviner GCP and PRP (PDS, read by HTTP range request) | temperature, polar cold traps | measured |
 
-Display imagery (never scored): Sentinel-2 cloudless (EOX / Copernicus), THEMIS day-IR and LROC WAC mosaics (USGS).
+Display only, never scored: Sentinel-2 cloudless (EOX / Copernicus), THEMIS day-IR and LROC WAC mosaics (USGS), and the
+25 interactive map layers served by NASA GIBS, NASA Solar System Treks, Macrostrat and AWS Terrain Tiles. A displayed
+tile is a picture of a product, not the product: where a GIBS-served product is scored, the pipeline fetches and
+decodes it separately. [`docs/DATA_SOURCES.md`](docs/DATA_SOURCES.md) records every outside source that was examined
+(JAXA G-Portal, ESA Open Science Data, Copernicus Data Space, RADARSAT-1, RCM, LRO Diviner, PDS, GIBS, Earthdata) and
+why each was scored, displayed, searched or left out.
 
 ## Reproduce the analysis
 
@@ -107,6 +130,7 @@ python pipeline/test_pipeline.py
 | Moon / Mars reference features | `build_targets.py` |
 | Scoring, candidates, geology, sensitivity, validation, portfolio | `analyze.py` (uses `score.py`, `terrain.py`, `geology.py`) |
 | Imagery and findings text | `imagery.py`, `findings.py` |
+| Coastlines, boundaries and place names for the maps (display only, standard library) | `fetch_reference.py` |
 
 Findings text is generated from the output files, so the prose cannot drift from the numbers.
 
@@ -114,8 +138,12 @@ Findings text is generated from the output files, so the prose cannot drift from
 
 - `pipeline/test_pipeline.py` — 10 checks on the calculations (window spacing on all three bodies, known-slope plane,
   kernel and gap-closure values, aggregation, geology scoring).
-- `tests/e2e.mjs` — 22 browser checks with Playwright: map and layer render, client-side scores equal the Python
-  pipeline's, profiles / sliders / filters / layers, dossier, deep links, missing-data behaviour.
+- `tests/e2e.mjs` — 90 browser checks with Playwright. The first 25 are the regression set: map and layer render,
+  client-side scores equal the Python pipeline's, profiles / sliders / filters / layers, dossier, deep links,
+  missing-data behaviour. The rest cover the cartography: legend classes, layer panel and dates, cursor readout,
+  coordinate navigation, projections, the site map and its 61 km window, the Moon / Mars map, satellite-pass search,
+  the portfolio map and matrix, the layer and source tables, and phone and tablet layouts. Checks that need an outside
+  service report SKIP, not FAIL, when it is unreachable.
 
 ## Limits you should know
 
@@ -137,9 +165,13 @@ pipeline/   data acquisition, feature extraction, scoring, validation (Python)
 web/        interactive application (React + TypeScript + MapLibre GL, Vite)
 web/public/data, web/public/img   committed pipeline outputs used by the app
 tests/      browser end-to-end checks
-docs/       presentation and screenshots
+docs/       presentation, screenshots and the data-source assessment (DATA_SOURCES.md)
+DESIGN.md   the Field Atlas design system as implemented
 PROGRESS.md decisions, findings, limitations
 ```
 
 Data credits: NASA (PDS Geosciences Node, LP DAAC, GIBS, POWER, GMAO, GSFC, JPL), NOAA NCEI, USGS Astrogeology,
-LMD / ESA / CNES (Mars Climate Database), ESA Copernicus via EOX, Macrostrat (CC-BY 4.0), Natural Earth.
+LMD / ESA / CNES (Mars Climate Database), ESA Copernicus via EOX and the Copernicus Data Space catalogue,
+NASA Solar System Treks (JPL), Macrostrat (CC-BY 4.0), Natural Earth, Terrain Tiles (Mapzen / AWS Open Data).
+We acknowledge the use of imagery provided by services from NASA's Global Imagery Browse Services (GIBS), part of
+NASA's Earth Science Data and Information System (ESDIS).

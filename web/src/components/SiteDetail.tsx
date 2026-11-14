@@ -1,8 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Bundle, FactorId, FeatureDef, Site, Target } from "../lib/data";
 import { asset } from "../lib/data";
-import { combine, fmt, fmtCoord, smart, type Weights } from "../lib/score";
-import { Pips, ProfileChart, Relief, SlopeChart, ThermalChart, TINT, bodyColor, reliefExag } from "./charts";
+import { combine, fmt, smart, type Weights } from "../lib/score";
+import { ddPair, dmsPair } from "../lib/geo";
+import { browserLink, recentScenes, type Scene } from "../lib/stac";
+import { ConfMark, Pips, ProfileChart, Relief, SlopeChart, ThermalChart, TINT, bodyColor, reliefExag } from "./charts";
+import { BodyMap, Locator, SiteMap, type PassRequest } from "./MiniMaps";
 
 const SITE_KEY: Record<string, string> = { slope: "slope_med", relief: "relief", hurst: "hurst", t_mean: "t_mean", t_dtr: "t_dtr", t_cold: "t_cold",
   precip: "precip", albedo: "albedo", bare: "ndvi", pressure: "pressure", dust: "dust", tqv: "tqv", cryo: "t_mean", frozen: "frozen" };
@@ -10,6 +13,10 @@ const TARGET_KEY: Record<string, string> = { slope: "slope_med", relief: "relief
   precip: "precip", albedo: "albedo", bare: "ndvi", pressure: "pressure", dust: "dust", tqv: "tqv" };
 const METHOD: Record<string, string> = { distribution: "distribution match", direct: "direct match", direct_log: "direct match (log)", gap: "gap closure",
   gap_log: "gap closure (log)", proxy_cryo: "proxy", proxy_frozen: "proxy" };
+const BODY_NAME: Record<string, string> = { earth: "Earth", mars: "Mars", moon: "Moon" };
+/** Weakest evidence kind decides how a score bar is drawn: solid = measured, hatched = model or blend, dotted = proxy. */
+const KIND_RANK: Record<string, number> = { measured: 0, compiled: 0, category: 0, blend: 1, model: 1, literature: 1, proxy: 2, definition: 0 };
+const KIND_CLASS = ["k-measured", "k-model", "k-proxy"];
 
 export function describe(fid: FactorId, site: Site, target: Target, b: Bundle): string {
   const f = site.features!, t = (k: string) => target.features[k]?.value, sc = site.scores[target.id];
@@ -45,9 +52,60 @@ function applications(site: Site, target: Target, matched: FactorId[]): string[]
   return out;
 }
 
+/* ------------------------------------------------------------------ satellite passes (live catalogue search) */
+function Passes({ site, onShow }: { site: Site; onShow: (p: PassRequest) => void }) {
+  const [state, setState] = useState<{ status: "idle" | "loading" | "done" | "error"; optical: Scene[]; radar: Scene[]; msg?: string }>({ status: "idle", optical: [], radar: [] });
+  const [n, setN] = useState(0);
+  useEffect(() => { setState({ status: "idle", optical: [], radar: [] }); }, [site.id]);
+  const load = () => {
+    const ac = new AbortController();
+    setState({ status: "loading", optical: [], radar: [] });
+    recentScenes(site.lat, site.lon, ac.signal)
+      .then((r) => setState({ status: "done", ...r }))
+      .catch((e) => setState({ status: "error", optical: [], radar: [], msg: String(e.message ?? e) }));
+  };
+  const show = (layer: "hls" | "sar", date: string) => { setN(n + 1); onShow({ layer, date, n: n + 1 }); document.querySelector(".sitemap")?.scrollIntoView({ block: "center", behavior: "smooth" }); };
+  return (
+    <div className="dsec" id="passes">
+      <h3>Recent satellite passes over this site</h3>
+      <p className="prose">A live search of the Copernicus catalogue for what Sentinel-2 (optical) and Sentinel-1 (radar) recorded here. It lists acquisitions, not measurements, and nothing from it enters a score. Choose a pass to draw it on the site map above.</p>
+      {state.status === "idle" && <button className="btn" onClick={load}>Search the Copernicus catalogue</button>}
+      {state.status === "loading" && <p className="note" role="status">Asking the Copernicus Data Space catalogue…</p>}
+      {state.status === "error" && <p className="caution">The catalogue could not be reached ({state.msg}). The rest of the report does not depend on it. <button className="link" onClick={load}>Try again</button></p>}
+      {state.status === "done" && (
+        <>
+          <table className="ledger passes">
+            <caption>Sentinel-2 MSI, Level-2A, scenes with under 15% cloud</caption>
+            <thead><tr><th>Date (UTC)</th><th>Satellite</th><th className="r">Cloud</th><th className="r">Sun elevation</th><th>Orbit</th><th></th></tr></thead>
+            <tbody>
+              {state.optical.length ? state.optical.map((s) => (
+                <tr key={s.id}><td className="num">{s.date} {s.time}</td><td>{s.platform}</td><td className="num r">{s.cloud == null ? "—" : `${s.cloud.toFixed(1)}%`}</td><td className="num r">{s.sunElevation == null ? "—" : `${s.sunElevation.toFixed(0)}°`}</td><td>{s.orbit ?? "—"}{s.relOrbit ? ` R${s.relOrbit}` : ""}</td>
+                  <td className="r"><button className="link" onClick={() => show("hls", s.date)}>Show on map</button> <a href={browserLink(site.lat, site.lon, s.date, "optical")} target="_blank" rel="noreferrer">Full product</a></td></tr>
+              )) : <tr><td colSpan={6} className="muted">No low-cloud scene in the most recent results. Snow-covered and polar-night sites often return none.</td></tr>}
+            </tbody>
+          </table>
+          <table className="ledger passes">
+            <caption>Sentinel-1 C-band radar, ground-range detected (Level-1 GRD)</caption>
+            <thead><tr><th>Date (UTC)</th><th>Satellite</th><th>Mode</th><th>Polarisation</th><th>Pass</th><th className="r">Incidence</th><th></th></tr></thead>
+            <tbody>
+              {state.radar.length ? state.radar.map((s) => (
+                <tr key={s.id}><td className="num">{s.date} {s.time}</td><td>{s.platform}</td><td>{s.mode ?? "—"}</td><td className="num">{s.pols?.join(" + ") ?? "—"}</td><td>{s.orbit ?? "—"}{s.relOrbit ? ` R${s.relOrbit}` : ""}</td><td className="num r">{s.incidence == null ? "—" : `${s.incidence.toFixed(0)}°`}</td>
+                  <td className="r"><button className="link" onClick={() => show("sar", s.date)}>Show on map</button> <a href={browserLink(site.lat, site.lon, s.date, "radar")} target="_blank" rel="noreferrer">Full product</a></td></tr>
+              )) : <tr><td colSpan={7} className="muted">No radar scene returned. Sentinel-1 does not image every land area on every cycle.</td></tr>}
+            </tbody>
+          </table>
+          <p className="caution">How to read radar here. Backscatter depends on surface roughness at centimetre scale, moisture, slope facing, look angle and polarisation at once. Two passes are comparable only when mode, polarisation, pass direction and relative orbit agree, which is why those columns are listed. Radar is shown as texture and structure. It is not evidence of rock type and does not show that this site and a planetary surface are geologically alike.</p>
+          <p className="credit">Catalogue: Copernicus Data Space Ecosystem STAC (contains modified Copernicus Sentinel data). Map pictures: NASA GIBS, HLS S30 for optical and OPERA RTC-S1 for radar, which are processed from the same acquisitions and may lag them by several days.</p>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function SiteDetail({ b, site, target, weights, pct, onBack, onTarget }:
   { b: Bundle; site: Site; target: Target; weights: Weights; pct: number; onBack: () => void; onTarget: (id: string) => void }) {
   const [view, setView] = useState<"image" | "relief">("image");
+  const [pass, setPass] = useState<PassRequest | null>(null);
   const sc = site.scores[target.id];
   const { overall, coverage } = combine(sc.fac, sc.expected, weights);
   const cb = bodyColor(target.body);
@@ -55,6 +113,8 @@ export function SiteDetail({ b, site, target, weights, pct, onBack, onTarget }:
   const TH = b.meta.params.match_threshold;
   const facs = sc.expected.map((k) => ({ k, v: sc.fac[k] })).filter((x) => x.v != null) as { k: FactorId; v: number }[];
   const sorted = [...facs].sort((a, c) => c.v - a.v);
+  const holds = sorted.filter((x) => x.v >= TH), fails = sorted.filter((x) => x.v < TH);
+  const missing = sc.expected.filter((k) => sc.fac[k] == null);
   const label = (k: FactorId) => b.meta.factors.find((f) => f.id === k)!.label;
   const hasImg = b.imagery.sites[site.id];
   const feats = (k: FactorId) => b.meta.features.filter((f) => f.factor === k && f.id in sc.f);
@@ -63,34 +123,51 @@ export function SiteDetail({ b, site, target, weights, pct, onBack, onTarget }:
   const [marsId, setMarsId] = useState<string | null>(null), [moonId, setMoonId] = useState<string | null>(null);
   const mars = b.targets.find((t) => t.id === marsId) ?? (target.body === "mars" ? target : best("mars")), moon = b.targets.find((t) => t.id === moonId) ?? (target.body === "moon" ? target : best("moon"));
   const triExag = Math.min(reliefExag(site.window, mars.window), reliefExag(site.window, moon.window));
+  const [name, ...place] = site.name.split(" · ");
+  const tBody = BODY_NAME[target.body];
+  const polarTarget = Math.abs(target.lat) > 80;
+  const targetImg = b.imagery.targets[target.id] ?? "";
+  const polar = target.climate.kind === "moon" ? target.climate.polar : null;
 
   const row = (fd: FeatureDef) => {
     const ev = f[SITE_KEY[fd.id]] as number | null, tk = TARGET_KEY[fd.id], tf = tk ? target.features[tk] : undefined;
     const tval = fd.id === "bare" ? "none" : fd.id === "cryo" ? "ground ice" : fd.id === "frozen" ? "always" : tf ? smart(tf.value, fd.unit === "deg" ? "°" : fd.unit) : "—";
     const eval_ = fd.id === "frozen" ? `${Math.round((ev ?? 0) * 12)} / 12 mo` : smart(ev, fd.unit === "deg" ? "°" : fd.unit);
+    const s = sc.f[fd.id], kc = KIND_CLASS[Math.max(KIND_RANK[fd.earth_kind] ?? 0, tf ? KIND_RANK[tf.kind] ?? 0 : 0)];
     return (
       <tr key={fd.id}>
-        <td className="l">{fd.label}<span className="m">{METHOD[fd.method]} · Earth <span className={`tag ${fd.earth_kind}`}>{fd.earth_kind}</span>{tf && <> {target.body === "mars" ? "Mars" : "Moon"} <span className={`tag ${tf.kind}`}>{tf.kind}</span></>}</span></td>
+        <td className="l">{fd.label}<span className="m">{METHOD[fd.method]}. Earth <span className={`tag ${fd.earth_kind}`}>{fd.earth_kind}</span>{tf && <> {tBody} <span className={`tag ${tf.kind}`}>{tf.kind}</span></>}</span></td>
         <td className="n"><span className="e-c">{eval_}</span><span className="vs">vs</span><span className="p-c">{tval}</span></td>
-        <td className="n s">{fmt(sc.f[fd.id], 2)}</td>
+        <td className="b"><div className={`bar thin ${kc}`}><i style={{ width: `${(s ?? 0) * 100}%` }} /></div></td>
+        <td className="n s">{fmt(s, 2)}</td>
       </tr>
     );
   };
 
   return (
-    <div>
-      <div className="dhead">
-        <button className="back" onClick={onBack}>← Rankings for {target.name}</button>
-        <h2>{site.name}</h2>
-        <div className="small muted num">{fmtCoord(site.lat, site.lon)} · {smart(f.elev)} m · <span className={`tag ${site.kind === "known" ? "known" : "cand"}`}>{site.kind === "known" ? "established analog" : "scan candidate"}</span>
-          {site.nearest_known && <> · {site.nearest_known.km} km from nearest established analog</>}</div>
-        <div className="kpis">
-          <div className="kpi"><div className="label k">Similarity</div><div className="v" style={{ color: cb }}>{fmt(overall, 2)}</div><div className="tiny muted">to {target.name}</div></div>
-          <div className="kpi"><div className="label k">Dimensions</div><div className="v">{sc.matched.length}<small> / {sc.expected.length}</small></div><Pips expected={sc.expected} matched={sc.matched} have={(k) => sc.fac[k as FactorId] != null} /></div>
-          <div className="kpi"><div className="label k">Earth rank</div><div className="v">{Number.isFinite(pct) ? (pct >= 99.95 ? "top 0.1" : `top ${(100 - pct).toFixed(pct > 99 ? 1 : 0)}`) : "—"}<small>%</small></div><div className="tiny muted">of land, before geology</div></div>
-          <div className="kpi"><div className="label k">Confidence</div><div className="v" style={{ fontSize: 17, paddingTop: 3 }}><span className={`conf ${sc.conf.label}`}>{sc.conf.label}</span></div><div className="tiny muted">coverage {Math.round(coverage * 100)}%</div></div>
+    <article className="report" data-body={target.body}>
+      <header className="dhead">
+        <button className="back" onClick={onBack}>Back to the ranking for {target.name}</button>
+        <div className="dtitle">
+          <div>
+            <p className="reportline">Field report {site.id.toUpperCase()}, compared with {target.name}, {tBody}</p>
+            <h2>{name}</h2>
+            {place.length > 0 && <p className="place">{place.join(", ")}</p>}
+            <p className="coords num"><span>{dmsPair(site.lat, site.lon)}</span><span>{ddPair(site.lat, site.lon, 3)}</span><span>{smart(f.elev)} m elevation</span></p>
+            <p className="status">
+              <span className={`tag ${site.kind === "known" ? "known" : "cand"}`}>{site.kind === "known" ? "established analog" : "scan candidate"}</span>
+              {site.nearest_known && <span className="muted"> {site.nearest_known.km} km from the nearest established analog ({site.nearest_known.name})</span>}
+            </p>
+          </div>
+          <Locator lat={site.lat} lon={site.lon} size={104} marks={[{ lat: site.lat, lon: site.lon, on: true }]} />
         </div>
-      </div>
+        <div className="kpis">
+          <div className="kpi"><div className="k">Similarity</div><div className="v" style={{ color: "var(--accent-ink)" }}>{fmt(overall, 2)}</div><div className="tiny muted">to {target.name}, 0 to 1</div></div>
+          <div className="kpi"><div className="k">Dimensions matched</div><div className="v">{sc.matched.length}<small> of {sc.expected.length}</small></div><Pips expected={sc.expected} matched={sc.matched} have={(k) => sc.fac[k as FactorId] != null} /></div>
+          <div className="kpi"><div className="k">Earth rank</div><div className="v">{Number.isFinite(pct) ? <>{pct >= 99.95 ? "top 0.1" : `top ${(100 - pct).toFixed(pct > 99 ? 1 : 0)}`}<small>%</small></> : "—"}</div><div className="tiny muted">{Number.isFinite(pct) ? "of land, before geology" : "computing from the grid…"}</div></div>
+          <div className="kpi"><div className="k">Confidence</div><div className="v conf-v"><ConfMark label={sc.conf.label} /></div><div className="tiny muted">coverage {Math.round(coverage * 100)}%, kept apart from similarity</div></div>
+        </div>
+      </header>
 
       {site.known && (
         <div className="dsec">
@@ -100,15 +177,30 @@ export function SiteDetail({ b, site, target, weights, pct, onBack, onTarget }:
         </div>
       )}
 
-      <div className="dsec">
+      <div className="dsec verdict">
         <h3>What matches, what does not</h3>
-        <ul className="plain">
-          {sorted.map((x) => <li key={x.k} className={x.v >= TH ? "plus" : "minus"}><b>{label(x.k)} {fmt(x.v, 2)}{x.v >= TH ? " — matched" : ""}.</b> {describe(x.k, site, target, b)}</li>)}
-        </ul>
+        <div className="holdfail">
+          <section>
+            <h4>Where the analogy holds <span className="num">{holds.length}</span></h4>
+            {holds.length ? <ul className="plain">{holds.map((x) => <li key={x.k} className="plus"><b>{label(x.k)} {fmt(x.v, 2)} — matched.</b> {describe(x.k, site, target, b)}</li>)}</ul>
+              : <p className="note">No dimension reaches the match threshold of {TH} for this reference region.</p>}
+          </section>
+          <section>
+            <h4>Where it fails <span className="num">{fails.length}</span></h4>
+            {fails.length ? <ul className="plain">{fails.map((x) => <li key={x.k} className="minus"><b>{label(x.k)} {fmt(x.v, 2)}.</b> {describe(x.k, site, target, b)}</li>)}</ul>
+              : <p className="note">Every dimension with data reaches the threshold. Read the limits at the end of this report before treating that as equivalence.</p>}
+            {missing.length > 0 && <p className="note">No data, so not counted either way: {missing.map(label).join(", ")}.</p>}
+          </section>
+        </div>
       </div>
 
       <div className="dsec">
-        <h3><span>Same footprint, same scale · {b.imagery.footprint_km.toFixed(0)} km</span>
+        <h3>Site map</h3>
+        <SiteMap key={site.id} lat={site.lat} lon={site.lon} name={site.name} halfKm={b.imagery.footprint_km / 2} pass={pass} />
+      </div>
+
+      <div className="dsec">
+        <h3><span>Same footprint, same scale, {b.imagery.footprint_km.toFixed(0)} km across</span>
           <span className="tabs2"><button aria-pressed={view === "image"} onClick={() => setView("image")}>Imagery</button><button aria-pressed={view === "relief"} onClick={() => setView("relief")}>Relief</button></span></h3>
         <div className="twocol">
           <div>
@@ -125,28 +217,55 @@ export function SiteDetail({ b, site, target, weights, pct, onBack, onTarget }:
                 : <Relief win={target.window} stepKm={b.meta.window.step_km} exag={exag} tint={TINT[target.body]} />}
               <div className="cap p">{target.name}</div><div className="scale" style={{ width: "32.9%" }}>20 km</div>
             </div>
-            <div className="credit">{view === "image" ? b.imagery.targets[target.id] : `${target.body === "mars" ? "MOLA" : "LOLA"} shaded relief · vertical exaggeration ×${exag}`}</div>
+            <div className="credit">{view === "image" ? targetImg : `${target.body === "mars" ? "MOLA" : "LOLA"} shaded relief · vertical exaggeration ×${exag}`}</div>
           </div>
         </div>
         <p className="note">Imagery is for orientation only and never enters a score. Relief is drawn from the exact elevation samples the terrain score uses.</p>
+        <table className="ledger compare">
+          <caption>What is and is not comparable between these two panels</caption>
+          <thead><tr><th></th><th>Earth panel</th><th>{target.name} panel</th><th>Comparable?</th></tr></thead>
+          <tbody>
+            <tr><th>Ground footprint</th><td>{b.imagery.footprint_km.toFixed(1)} km square</td><td>{b.imagery.footprint_km.toFixed(1)} km square</td><td>Yes. Each is sized with its own body's radius.</td></tr>
+            <tr><th>Imagery</th><td>Sentinel-2 visible true colour, 10 m source, cloud-free composite of 2020</td>
+              <td>{target.body === "mars" ? "THEMIS daytime thermal infrared, 100 m mosaic" : polarTarget ? "No image: shaded relief computed from LOLA 240 m elevation" : "LROC WAC visible, single band, 100 m mosaic"}</td>
+              <td>{target.body === "mars" ? "Shape only. Infrared brightness is temperature, not colour or albedo." : polarTarget ? "Shape only. The lunar panel is synthetic shading, not a photograph." : "Shape and relative tone. Colour exists only on the Earth side."}</td></tr>
+            <tr><th>Lighting</th><td>Many dates and sun angles merged</td><td>{target.body === "mars" ? "Daytime, mixed local times" : polarTarget ? "Artificial light from the north-west, 25° high" : "Mosaic with sun angle varying about 28° across a month"}</td><td>No. Do not compare shadows or brightness.</td></tr>
+            <tr><th>Projection</th><td colSpan={2}>Both are simple cylindrical boxes scaled by the cosine of latitude{polarTarget ? "; the lunar polar panel is cut from a polar stereographic grid" : ""}</td><td>{polarTarget ? "Approximately. Shapes near the pole are sheared on a cylindrical grid, so the polar panel uses its own." : "Yes at this size; distortion across 61 km is under 1%."}</td></tr>
+            <tr><th>Relief view</th><td>NOAA ETOPO 2022, 1.85 km</td><td>{target.body === "mars" ? "MGS MOLA MEGDR, 1.85 km" : "LRO LOLA LDEM, 1.90 km"}</td><td>Yes. Same 32 × 32 sampling at {b.meta.window.step_km} km, same light, same vertical exaggeration. This is the view the terrain score is built on.</td></tr>
+          </tbody>
+        </table>
       </div>
 
       <div className="dsec">
-        <h3>Terrain · elevation profile through the window centre</h3>
+        <h3>Terrain: elevation profile through the window centre</h3>
         <ProfileChart a={site.profile} b={target.profile} stepKm={b.meta.window.step_km} la={site.name} lb={target.name} cb={cb} />
-        <h3 style={{ marginTop: 18 }}>Terrain · slope distribution</h3>
+        <h3 className="sub">Terrain: slope distribution</h3>
         <SlopeChart qa={f.slope_q as unknown as number[]} qb={target.slope_q} qs={b.meta.slope_q} la={site.name} lb={target.name} cb={cb} />
         <p className="credit">Earth: NOAA ETOPO 2022 (1.85 km). {target.body === "mars" ? "Mars: MGS MOLA MEGDR 32 px/deg (1.85 km)." : "Moon: LRO LOLA LDEM 16 px/deg (1.90 km)."} Identical sampling on both bodies.</p>
       </div>
 
       <div className="dsec">
-        <h3>Thermal · kelvin</h3>
+        <h3>Thermal, in kelvin</h3>
         <ThermalChart target={target} site={site} />
         <p className="credit">Earth: MERRA-2 skin temperature sharpened with MODIS LST ({site.sources?.thermal === "MODIS" ? "MODIS detail available" : "no MODIS detail here"}). {target.features.t_mean?.source}.</p>
+        {polar && (
+          <div className="polar">
+            <h4>Inside the lunar polar window: Diviner Polar Resource Product</h4>
+            <dl className="facts">
+              <div><dt>Median annual mean</dt><dd>{fmt(polar.t_avg_median, 0)} K</dd></div>
+              <div><dt>Coldest annual mean</dt><dd>{fmt(polar.t_avg_min, 0)} K</dd></div>
+              <div><dt>Median annual maximum</dt><dd>{fmt(polar.t_max_median, 0)} K</dd></div>
+              <div><dt>Hottest annual maximum</dt><dd>{fmt(polar.t_max_max, 0)} K</dd></div>
+              <div><dt>Never above 110 K</dt><dd>{polar.trap_frac == null ? "—" : `${(polar.trap_frac * 100).toFixed(1)}% of the window`}</dd></div>
+              <div><dt>Ice stable within 1 m</dt><dd>{polar.ice_stable_frac == null ? "—" : `${(polar.ice_stable_frac * 100).toFixed(0)}% of the window`}</dd></div>
+            </dl>
+            <p className="note">From {polar.n?.toLocaleString()} samples of the 0.5 km polar mesh (LRO-L-DLRE-5-PRP-V2.0, Paige et al. 2010). Temperatures are measured; the ice-stability depth is a thermal model built on them. At the poles these values replace the 0.5° global bin, which mixes sunlit ridge and permanent shadow. The Earth site is compared with the window median, so it says nothing about the cold traps themselves.</p>
+          </div>
+        )}
       </div>
 
       <div className="dsec">
-        <h3><span>Score breakdown</span><span>score 0–1</span></h3>
+        <h3><span>Score breakdown</span><span>score 0 to 1</span></h3>
         {sc.expected.map((k) => (
           <div className="fac" key={k}>
             <div className="fachead">
@@ -157,23 +276,25 @@ export function SiteDetail({ b, site, target, weights, pct, onBack, onTarget }:
             {k === "geology" ? (
               <table className="ftable"><tbody>
                 {sc.geo.length ? sc.geo.map((g) => (
-                  <tr key={g.target}><td className="l">{b.meta.geology.labels[g.target]}<span className="m">category affinity · <span className="tag category">compiled maps</span></span></td>
-                    <td className="n"><span className="e-c">{g.match ? b.meta.geology.labels[g.match] : "not mapped"}</span></td><td className="n s">{fmt(g.affinity, 2)}</td></tr>
+                  <tr key={g.target}><td className="l">{b.meta.geology.labels[g.target]}<span className="m">category affinity. <span className="tag category">compiled maps</span></span></td>
+                    <td className="n"><span className="e-c">{g.match ? b.meta.geology.labels[g.match] : "not mapped"}</span></td><td className="b"><div className="bar thin k-measured"><i style={{ width: `${g.affinity * 100}%` }} /></div></td><td className="n s">{fmt(g.affinity, 2)}</td></tr>
                 )) : <tr><td className="l">No lithology data returned for this point — geology is excluded from the score and lowers coverage.</td></tr>}
               </tbody></table>
             ) : <table className="ftable"><tbody>{feats(k).map(row)}</tbody></table>}
           </div>
         ))}
+        <p className="barkey"><span className="bar thin k-measured"><i /></span> measured <span className="bar thin k-model"><i /></span> model or blend on either side <span className="bar thin k-proxy"><i /></span> proxy</p>
         <p className="note">The tick on each bar marks the match threshold ({TH}). Factors combine as a weighted geometric mean, so one failed dimension cannot be bought back by another.</p>
       </div>
 
       <div className="dsec">
         <h3>Confidence — kept separate from similarity</h3>
         <div className="meters">
-          <div className="meter"><div className="label">Evidence coverage</div><div className="v">{Math.round(sc.conf.coverage * 100)}%</div><div className="bar"><i style={{ width: `${sc.conf.coverage * 100}%`, background: "var(--earth)" }} /></div><div className="tiny muted" style={{ marginTop: 6 }}>share of the profile backed by data</div></div>
-          <div className="meter"><div className="label">Evidence quality</div><div className="v">{fmt(sc.conf.evidence, 2)}</div><div className="bar"><i style={{ width: `${sc.conf.evidence * 100}%`, background: "var(--earth)" }} /></div><div className="tiny muted" style={{ marginTop: 6 }}>measured 1.0 · model 0.7 · proxy 0.5</div></div>
-          <div className="meter"><div className="label">Rank stability</div><div className="v">{fmt(sc.conf.stability, 2)}</div><div className="bar"><i style={{ width: `${sc.conf.stability * 100}%`, background: "var(--earth)" }} /></div><div className="tiny muted" style={{ marginTop: 6 }}>percentile {fmt(sc.conf.pct_p10, 1)}–{fmt(sc.conf.pct_p90, 1)} over {b.meta.sensitivity.runs} perturbed runs</div></div>
+          <div className="meter"><div className="k">Evidence coverage</div><div className="v">{Math.round(sc.conf.coverage * 100)}%</div><div className="bar ink"><i style={{ width: `${sc.conf.coverage * 100}%` }} /></div><div className="tiny muted">share of the profile backed by data</div></div>
+          <div className="meter"><div className="k">Evidence quality</div><div className="v">{fmt(sc.conf.evidence, 2)}</div><div className="bar ink"><i style={{ width: `${sc.conf.evidence * 100}%` }} /></div><div className="tiny muted">measured 1.0 · model 0.7 · proxy 0.5</div></div>
+          <div className="meter"><div className="k">Rank stability</div><div className="v">{fmt(sc.conf.stability, 2)}</div><div className="bar ink"><i style={{ width: `${sc.conf.stability * 100}%` }} /></div><div className="tiny muted">percentile {fmt(sc.conf.pct_p10, 1)}–{fmt(sc.conf.pct_p90, 1)} over {b.meta.sensitivity.runs} perturbed runs</div></div>
         </div>
+        <p className="note">Confidence is the product of the three, here {fmt(sc.conf.value, 2)}: <ConfMark label={sc.conf.label} />. It is drawn in ink, never in the similarity colours, and it never changes the similarity number.</p>
         <p className="note">Cross-checks at this cell — temperature: MODIS {fmt(f.modis_t_mean, 0)} K vs MERRA-2 {fmt(f.merra_t_mean, 0)} K · precipitation: IMERG {smart(f.imerg_precip)} vs MERRA-2 {smart(f.merra_precip)} mm/yr · albedo: MODIS {fmt(f.modis_albedo, 2)} vs CERES {fmt(f.ceres_albedo, 2)}.</p>
       </div>
 
@@ -187,8 +308,10 @@ export function SiteDetail({ b, site, target, weights, pct, onBack, onTarget }:
             {u.ref && <div className="credit">{u.ref}</div>}
           </div>
         )) : <p className="note">Macrostrat returned no mapped unit at this point.</p>}
-        <p className="credit">Lithology from Macrostrat (CC-BY 4.0). Not assessed from maps: {target.geology.filter((c) => b.meta.geology.unassessed.includes(c)).map((c) => b.meta.geology.labels[c]).join(", ") || "—"}.</p>
+        <p className="credit">Lithology from Macrostrat (CC-BY 4.0). Turn on “Geologic units” in the site map above to see the mapped boundaries. Not assessed from maps: {target.geology.filter((c) => b.meta.geology.unassessed.includes(c)).map((c) => b.meta.geology.labels[c]).join(", ") || "—"}.</p>
       </div>
+
+      <Passes site={site} onShow={setPass} />
 
       <div className="dsec">
         <h3>What this site could be used for</h3>
@@ -196,18 +319,24 @@ export function SiteDetail({ b, site, target, weights, pct, onBack, onTarget }:
       </div>
 
       <div className="dsec">
-        <h3>Earth · Mars · Moon at the same scale</h3>
+        <h3>{target.name} on {target.body === "mars" ? "Mars" : "the Moon"}</h3>
+        <BodyMap body={target.body} targets={b.targets.filter((t) => t.body === target.body)} selected={target.id} onSelect={onTarget} />
+      </div>
+
+      <div className="dsec">
+        <h3>Earth, Mars and the Moon at the same scale</h3>
         <div className="tri">
           {[{ body: "earth", name: site.name, win: site.window, t: null as Target | null }, { body: "mars", name: mars.name, win: mars.window, t: mars }, { body: "moon", name: moon.name, win: moon.window, t: moon }].map((c) => {
             const v = (k: string) => (c.t ? c.t.features[k]?.value : (f[k] as number | null));
             return (
               <div key={c.body}>
-                <div className="frame"><Relief win={c.win} stepKm={b.meta.window.step_km} exag={triExag} tint={TINT[c.body]} /><div className={`cap ${c.body === "earth" ? "e" : c.body}`}>{c.body}</div></div>
+                <div className="frame"><Relief win={c.win} stepKm={b.meta.window.step_km} exag={triExag} tint={TINT[c.body]} /><div className={`cap ${c.body === "earth" ? "e" : c.body}`}>{BODY_NAME[c.body]}</div></div>
                 {c.t ? (
-                  <select className="sel" style={{ marginTop: 8 }} value={c.t.id} onChange={(e) => (c.body === "mars" ? setMarsId : setMoonId)(e.target.value)} aria-label={`${c.body} reference region`}>
+                  <select className="sel" value={c.t.id} onChange={(e) => (c.body === "mars" ? setMarsId : setMoonId)(e.target.value)} aria-label={`${c.body} reference region`}>
                     {b.targets.filter((t) => t.body === c.body).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
-                ) : <h4>{c.name}</h4>}
+                ) : <h4>{name}</h4>}
+                <p className="num tiny muted">{c.t ? ddPair(c.t.lat, c.t.lon) : ddPair(site.lat, site.lon)}</p>
                 <div className="kv">
                   <span>Median slope</span><span>{fmt(v("slope_med"), 2)}°</span>
                   <span>Relief</span><span>{smart(v("relief"))} m</span>
@@ -217,17 +346,17 @@ export function SiteDetail({ b, site, target, weights, pct, onBack, onTarget }:
                   <span>Pressure</span><span>{c.body === "moon" ? "vacuum" : `${smart(v("pressure"))} kPa`}</span>
                   {c.t && <><span>Similarity to site</span><span style={{ color: bodyColor(c.body) }}>{fmt(site.scores[c.t.id]?.overall.balanced, 2)}</span></>}
                 </div>
-                {c.t && c.t.id !== target.id && <button className="chip" style={{ marginTop: 8 }} onClick={() => onTarget(c.t!.id)}>Compare against this →</button>}
+                {c.t && c.t.id !== target.id && <button className="chip" onClick={() => onTarget(c.t!.id)}>Compare against this</button>}
               </div>
             );
           })}
         </div>
-        <p className="credit">Relief: ETOPO 2022, MOLA, LOLA at ~1.9 km sampling, shared vertical exaggeration ×{triExag}. Mars temperatures and pressure are Mars Climate Database model values; lunar temperatures are Diviner measurements.</p>
+        <p className="credit">Relief: ETOPO 2022, MOLA, LOLA at ~1.9 km sampling, shared vertical exaggeration ×{triExag}. Mars temperatures and pressure are Mars Climate Database model values; lunar temperatures are Diviner measurements. A lunar day lasts 29.5 Earth days and a Martian sol 24.66 hours, so the three daily swings are not over the same length of time.</p>
       </div>
 
       <div className="dsec">
         <div className="callout"><b>Read this before visiting.</b> No site on Earth reproduces {target.body === "mars" ? "0.38 g, a 0.6 kPa CO₂ atmosphere" : "0.17 g, hard vacuum"} or the surface radiation environment. The score says the measured variables resemble {target.name}; it is an argument for field work, not a replacement for it.</div>
       </div>
-    </div>
+    </article>
   );
 }

@@ -63,7 +63,33 @@ export function distribution(grid: Float32Array, w: number, h: number) {
   for (let i = 0; i < BINS; i++) { acc += hist[i]; cum[i] = acc / (total || 1); }
   const pct = (v: number) => (v !== v ? NaN : 100 * (cum[Math.max(0, Math.min(BINS - 1, Math.floor(v * BINS)) - 1)] ?? 0));
   const quantile = (q: number) => { let i = 0; while (i < BINS - 1 && cum[i] < q) i++; return (i + 0.5) / BINS; };
-  return { pct, quantile };
+  return { pct, quantile, hist, total };
+}
+export type Distribution = ReturnType<typeof distribution>;
+
+// ---- display classes ----
+// The map shows the best-scoring 30% of land, cut into five classes by share of land area.
+// Classes are a display choice only: scores, ranks and percentiles are untouched.
+export const CLASS_TOPS = [30, 10, 3, 1, 0.1];
+export interface ScoreClass { lo: number; hi: number; top: number; next: number; label: string }
+export function scoreClasses(d: Distribution): ScoreClass[] {
+  const cut = CLASS_TOPS.map((t) => d.quantile(1 - t / 100));
+  const max = Math.max(d.quantile(0.99999), cut[cut.length - 1]);
+  return CLASS_TOPS.map((t, i) => {
+    const next = CLASS_TOPS[i + 1] ?? 0;
+    return { lo: cut[i], hi: i + 1 < cut.length ? cut[i + 1] : max, top: t, next, label: next ? `top ${t}–${next}%` : `top ${t}%` };
+  });
+}
+/** Coarse histogram of the land-area score distribution, for the legend. */
+export function histogram(d: Distribution, lo: number, hi: number, n: number) {
+  const out = new Array(n).fill(0), B = d.hist.length;
+  for (let i = 0; i < B; i++) {
+    const v = (i + 0.5) / B;
+    if (v < lo || v >= hi) continue;
+    out[Math.min(n - 1, Math.floor(((v - lo) / (hi - lo)) * n))] += d.hist[i];
+  }
+  const m = Math.max(...out, 1e-12);
+  return out.map((x) => x / m);
 }
 
 export function cellValue(grid: Float32Array, w: number, h: number, lat: number, lon: number) {
@@ -72,12 +98,18 @@ export function cellValue(grid: Float32Array, w: number, h: number, lat: number,
   return grid[r * w + c];
 }
 
-// ---- colour ramps (perceptually ordered, dark -> light, colour-blind safe) ----
+// ---- colour ramps ----
+// Two polarities per body, both ordered in lightness so they survive greyscale and colour-blind viewing.
+//   mars / moon        dark -> light, for dark imagery basemaps (high similarity glows)
+//   marsInk / moonInk  light -> dark, for the paper relief basemap (high similarity is the deepest ink)
 type Stop = [number, number, number];
 const RAMPS: Record<string, Stop[]> = {
   mars: [[38, 12, 46], [92, 22, 72], [152, 40, 70], [205, 76, 52], [240, 132, 44], [250, 196, 86], [252, 247, 196]],
   moon: [[12, 22, 46], [26, 52, 92], [36, 94, 126], [52, 140, 150], [98, 186, 168], [170, 222, 190], [236, 250, 226]],
+  marsInk: [[240, 222, 178], [229, 190, 132], [213, 151, 96], [190, 112, 72], [158, 76, 52], [118, 46, 38], [72, 22, 28]],
+  moonInk: [[220, 226, 242], [186, 198, 230], [148, 166, 212], [112, 132, 188], [80, 100, 158], [54, 70, 124], [30, 40, 86]],
 };
+export const rampFor = (body: string, darkBase: boolean) => (darkBase ? body : `${body}Ink`);
 export function ramp(name: string, t: number): Stop {
   const st = RAMPS[name] ?? RAMPS.mars;
   const x = Math.max(0, Math.min(1, t)) * (st.length - 1);

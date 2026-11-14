@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
 import type { Site, Target } from "../lib/data";
 
-const C = { earth: "#63c7b2", mars: "#e0793f", moon: "#a9bfd9" };
+// Body colours of the Field Atlas palette: lichen for Earth, oxidised copper for Mars, mare slate for the Moon.
+const C = { earth: "#5F6B4A", mars: "#B66B48", moon: "#55697C" };
 export const bodyColor = (b: string) => (C as any)[b] ?? "#ccc";
 
 /** Shaded relief drawn from the same 32 x 32 elevation window the algorithm scores.
@@ -33,7 +34,7 @@ export function Relief({ win, stepKm, exag, tint }: { win: number[][]; stepKm: n
         const nl = Math.sqrt(dzdx * dzdx + dzdy * dzdy + 1);
         const sh = Math.max(0, (-dzdx * lx - dzdy * ly + lz) / nl);
         const h = zmax > zmin ? (z(x, y) - zmin) / (zmax - zmin) : 0.5;
-        const k = (0.2 + 0.9 * sh) * (0.72 + 0.28 * h);
+        const k = (0.34 + 0.76 * sh) * (0.8 + 0.2 * h);
         const o = (py * S + px) * 4;
         img.data[o] = Math.min(255, tint[0] * k);
         img.data[o + 1] = Math.min(255, tint[1] * k);
@@ -46,7 +47,7 @@ export function Relief({ win, stepKm, exag, tint }: { win: number[][]; stepKm: n
   return <canvas ref={ref} aria-label="Shaded relief of the terrain analysis window" />;
 }
 
-export const TINT: Record<string, [number, number, number]> = { earth: [196, 214, 204], mars: [232, 176, 138], moon: [206, 212, 222] };
+export const TINT: Record<string, [number, number, number]> = { earth: [226, 228, 208], mars: [240, 204, 174], moon: [218, 224, 230] };
 
 export function reliefExag(a: number[][], b: number[][]) {
   const range = (w: number[][]) => { let lo = Infinity, hi = -Infinity; for (const r of w) for (const v of r) { lo = Math.min(lo, v); hi = Math.max(hi, v); } return hi - lo; };
@@ -138,22 +139,22 @@ export function ThermalChart({ target, site }: { target: Target; site: Site }) {
     <>
       <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Temperature comparison">
         {ticks(lo, hi, 5).map((t) => (<g key={t}><line className="grid" x1={L} x2={W - R} y1={y(t)} y2={y(t)} /><text x={L - 6} y={y(t) + 3} textAnchor="end">{t}</text></g>))}
-        {lo < 273.15 && hi > 273.15 && (<g><line x1={L} x2={W - 6} y1={y(273.15)} y2={y(273.15)} stroke="#4a5562" strokeDasharray="2 3" /><text x={L + 4} y={y(273.15) - 3}>0 °C</text></g>)}
+        {lo < 273.15 && hi > 273.15 && (<g><line x1={L} x2={W - 6} y1={y(273.15)} y2={y(273.15)} stroke="#8a8c80" strokeDasharray="2 3" /><text x={L + 4} y={y(273.15) - 3}>0 °C</text></g>)}
         {[0, 6, 12, 18, 24].map((h) => (<text key={h} x={x(h)} y={H - 7} textAnchor="middle">{String(h).padStart(2, "0")}h</text>))}
         <text x={4} y={T + 6}>K</text>
         {curves.map((c, i) => (
-          <path key={c.label} d={c.y.map((v, k) => `${k ? "L" : "M"}${x(c.x[k]).toFixed(1)},${y(v).toFixed(1)}`).join("")} fill="none" stroke={cb} strokeWidth={1.5} opacity={curves.length > 1 ? 0.45 + 0.18 * i : 1} />
+          <path key={c.label} d={c.y.map((v, k) => `${k ? "L" : "M"}${x(c.x[k]).toFixed(1)},${y(v).toFixed(1)}`).join("")} fill="none" stroke={cb} strokeWidth={1.5} strokeDasharray={target.climate.kind === "mars" ? "5 3" : undefined} opacity={curves.length > 1 ? 0.5 + 0.16 * i : 1} />
         ))}
         {/* envelopes */}
         <line x1={bx} x2={bx} y1={y(pHi)} y2={y(pLo)} stroke={cb} strokeWidth={7} opacity={0.75} />
-        <line x1={bx - 7} x2={bx + 7} y1={y(pMean)} y2={y(pMean)} stroke="#fff" strokeWidth={1.5} />
+        <line x1={bx - 7} x2={bx + 7} y1={y(pMean)} y2={y(pMean)} stroke="#202622" strokeWidth={1.5} />
         <line x1={bx + 34} x2={bx + 34} y1={y(eHi)} y2={y(eLo)} stroke={C.earth} strokeWidth={7} opacity={0.8} />
-        <line x1={bx + 27} x2={bx + 41} y1={y(eMean)} y2={y(eMean)} stroke="#fff" strokeWidth={1.5} />
+        <line x1={bx + 27} x2={bx + 41} y1={y(eMean)} y2={y(eMean)} stroke="#202622" strokeWidth={1.5} />
         <text x={bx} y={H - 7} textAnchor="middle">{target.body === "mars" ? "Mars" : "Moon"}</text>
         <text x={bx + 34} y={H - 7} textAnchor="middle">Earth</text>
       </svg>
       <div className="lg">
-        <span style={{ ["--c" as any]: cb }}>{target.climate.kind === "mars" ? "Surface temperature through one sol at four seasons (MCD model)" : "Bolometric temperature through one lunar day (Diviner, measured)"}</span>
+        <span className={target.climate.kind === "mars" ? "dash" : ""} style={{ ["--c" as any]: cb }}>{target.climate.kind === "mars" ? "Surface temperature through one sol at four seasons (Mars Climate Database: a model, so drawn dashed)" : "Bolometric temperature through one lunar day (Diviner, measured)"}</span>
         <span style={{ ["--c" as any]: C.earth }}>Earth site: coldest-month night to warmest-month day; tick = annual mean</span>
       </div>
     </>
@@ -166,4 +167,9 @@ export function Pips({ expected, matched, have }: { expected: string[]; matched:
       {expected.map((k) => <i key={k} className={matched.includes(k) ? "on" : have(k) ? "" : "na"} />)}
     </span>
   );
+}
+
+/** Confidence is always drawn in ink: solid = high, half = moderate, open = low. Never in a similarity colour. */
+export function ConfMark({ label, bare = false }: { label: string; bare?: boolean }) {
+  return <span className={`conf ${label}`} title={`${label} confidence`}><i aria-hidden="true" />{bare ? <span className="sr">{label} confidence</span> : label}</span>;
 }
