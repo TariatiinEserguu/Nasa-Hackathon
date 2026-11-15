@@ -1,11 +1,11 @@
 import { useEffect, useRef } from "react";
 import type { Site, Target } from "../lib/data";
 
-// Body colours of the observatory palette: mineral green for Earth, oxidised copper for Mars, ice blue for the Moon.
-// They match --earth, --mars and --moon in styles.css.
-const C = { earth: "#86A57F", mars: "#D0713F", moon: "#7FBAD3" };
-const FG = "#ECE5D6", NOTE = "#8C95A5";
-export const bodyColor = (b: string) => (C as any)[b] ?? "#ccc";
+// Body colours: mineral green for Earth, iron oxide for Mars, anorthosite slate for the Moon.
+// They are CSS variables so each chart takes the tone of the surface it sits on (ink-dark on paper, lit on a plate).
+const C = { earth: "var(--earth)", mars: "var(--mars)", moon: "var(--moon)" };
+const FG = "var(--fg)", NOTE = "var(--fg-3)";
+export const bodyColor = (b: string) => (C as any)[b] ?? "var(--fg-3)";
 
 /** Shaded relief drawn from the same 32 x 32 elevation window the algorithm scores.
  *  `exag` (vertical exaggeration) is shared between panels so reliefs stay comparable. */

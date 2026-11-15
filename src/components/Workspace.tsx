@@ -1,49 +1,58 @@
-//workspace.tsx
-// // Pieces of the Explore workspace that sit around the map: legend, cursor readout, layer panel.
+// Pieces of the Explore workspace that sit around the map: legend, cursor readout, layer panel.
 import { useMemo } from "react";
 import type { Bundle, FactorId, Site, Target } from "../lib/data";
 import { cellValue, fmt, histogram, rampCss, type Distribution, type ScoreClass } from "../lib/score";
 import { EARTH_LAYERS, dateLabel, earthLayer, earthLayers, latestDate, shiftDate, type MapLayerDef } from "../lib/layers";
 import { cellOf, ddPair, haversineKm } from "../lib/geo";
-import { siteSymbol, useProbe } from "./MapView";
+import { INK, PAPER, siteSymbol, useProbe } from "./MapView";
 import { ConfMark } from "./charts";
 
 const svgUri = (s: string) => "data:image/svg+xml;charset=utf-8," + encodeURIComponent(s);
-export function SiteGlyph({ kind, conf, size = 13 }: { kind: "known" | "candidate"; conf: string; size?: number }) {
-  return <img className="glyph" width={size} height={size} alt="" src={svgUri(siteSymbol(kind, conf, 30))} />;
+/** Site symbol outside the map. `tone` picks chalk-on-plate (as on the map) or ink-on-paper. */
+export function SiteGlyph({ kind, conf, size = 13, tone = "plate" }: { kind: "known" | "candidate"; conf: string; size?: number; tone?: "plate" | "paper" }) {
+  const src = tone === "paper" ? siteSymbol(kind, conf, 30, INK, PAPER) : siteSymbol(kind, conf, 30);
+  return <img className="glyph" width={size} height={size} alt="" src={svgUri(src)} />;
 }
 
 /* ------------------------------------------------------------------ legend */
+// The legend lives in the margin under the map, as on an atlas sheet: unit boxes with their score ranges,
+// and beside them the land-area histogram, each bar painted in the colour that cell would get on the map.
 export function Legend({ title, unitLabel, classes, classed, rampName, domain, dist, shown, obs, obsDate }:
   { title: string; unitLabel: string; classes: ScoreClass[] | null; classed: boolean; rampName: string; domain: [number, number]; dist: Distribution | null; shown: boolean; obs: MapLayerDef | null; obsDate: string }) {
-  const hist = useMemo(() => (dist ? histogram(dist, 0, Math.max(domain[1], 0.05) * 1.04, 56) : []), [dist, domain[1]]);
+  const N = 56;
   const hi = Math.max(domain[1], 0.05) * 1.04;
+  const hist = useMemo(() => (dist ? histogram(dist, 0, hi, N) : []), [dist, hi]);
+  const tone = (k: number, n: number) => rampCss(rampName, 0.04 + 0.96 * ((k + 0.5) / n));
+  const barColour = (x: number) => {
+    if (x < domain[0]) return "var(--chalk-4)";
+    if (classed && classes) { let k = 0; while (k < classes.length - 1 && x >= classes[k + 1].lo) k++; return tone(k, classes.length); }
+    return rampCss(rampName, 0.04 + 0.96 * Math.min(1, (x - domain[0]) / Math.max(1e-6, domain[1] - domain[0])));
+  };
   return (
     <aside className="legend" aria-label="Map legend">
-      <h3>{title}</h3>
+      <h3>{title}<span>{shown ? (classed ? "five classes by share of land" : "continuous") : "hidden"}</span></h3>
       {shown ? (
-        <>
+        <div className="lg-body">
           {classed && classes ? (
             <ol className="classes" reversed aria-label="Classes by share of land area, with score range">
-              <li className="head"><i /><span>share of land</span><span>score</span></li>
-              {[...classes].reverse().map((c, i) => {
-                const k = classes.length - 1 - i;
-                return <li key={c.top}><i style={{ background: rampCss(rampName, 0.04 + 0.96 * ((k + 0.5) / classes.length)) }} /><span>{c.label}</span><span className="num">{fmt(c.lo, 2)}–{fmt(c.hi, 2)}</span></li>;
-              })}
-              <li className="none"><i /><span>other 70%</span><span className="num">below {fmt(domain[0], 2)}</span></li>
+              {[...classes].reverse().map((c, i) => <li key={c.top}><i style={{ background: tone(classes.length - 1 - i, classes.length) }} /><span>{c.label}</span><span className="num">{fmt(c.lo, 2)}–{fmt(c.hi, 2)}</span></li>)}
+              <li className="none"><i /><span>other 70%</span><span className="num">&lt; {fmt(domain[0], 2)}</span></li>
             </ol>
           ) : (
-            <div className="legendbar" style={{ background: `linear-gradient(90deg, ${[0, 0.2, 0.4, 0.6, 0.8, 1].map((t) => rampCss(rampName, 0.04 + 0.96 * t)).join(",")})` }} />
+            <div className="lg-cont">
+              <div className="legendbar" style={{ background: `linear-gradient(90deg, ${[0, 0.2, 0.4, 0.6, 0.8, 1].map((t) => rampCss(rampName, 0.04 + 0.96 * t)).join(",")})` }} />
+              <div className="legendticks"><span className="num">{fmt(domain[0], 2)}</span><span>{unitLabel}</span><span className="num">{fmt(domain[1], 2)}</span></div>
+            </div>
           )}
-          <div className="legendticks"><span>{fmt(domain[0], 2)}</span><span>{unitLabel}</span><span>{fmt(domain[1], 2)}</span></div>
           {hist.length > 0 && (
-            <svg className="hist" viewBox="0 0 168 30" preserveAspectRatio="none" role="img" aria-label="How land area is spread across scores">
-              {hist.map((v, i) => { const x0 = (i / hist.length) * hi; return <rect key={i} x={i * 3} y={30 - v * 28} width={2.4} height={v * 28} fill={x0 >= domain[0] ? "var(--fg)" : "var(--line-strong)"} />; })}
-              {(classes ?? []).map((c) => <line key={c.top} x1={(c.lo / hi) * 168} x2={(c.lo / hi) * 168} y1={0} y2={30} stroke="var(--bg)" strokeWidth={0.8} />)}
-            </svg>
+            <figure className="lg-dist">
+              <svg className="hist" viewBox={`0 0 ${N * 3} 40`} preserveAspectRatio="none" role="img" aria-label="Land area by score. Coloured bars are the cells drawn on the map; grey bars are the other 70% of land.">
+                {hist.map((v, i) => { const x0 = (i / N) * hi; return <rect key={i} x={i * 3} y={40 - Math.max(v * 38, v > 0 ? 0.8 : 0)} width={2.3} height={Math.max(v * 38, v > 0 ? 0.8 : 0)} fill={barColour(x0)} />; })}
+              </svg>
+              <figcaption className="legendticks"><span className="num">0</span><span>{unitLabel}</span><span className="num">{fmt(hi, 2)}</span></figcaption>
+            </figure>
           )}
-          <p className="fine">Land area by score, 0 to {fmt(hi, 2)}. Bright bars are drawn on the map.</p>
-        </>
+        </div>
       ) : <p className="fine">The similarity layer is hidden. Turn it on under Map layers.</p>}
       {obs && (
         <div className="obsleg">
@@ -53,9 +62,8 @@ export function Legend({ title, unitLabel, classes, classed, rampName, domain, d
         </div>
       )}
       <div className="symkey">
-        <span><SiteGlyph kind="candidate" conf="high" /> candidate</span><span><SiteGlyph kind="known" conf="high" /> established</span>
-        <span className="sep">fill is confidence:</span>
-        <span><SiteGlyph kind="candidate" conf="high" /> high</span><span><SiteGlyph kind="candidate" conf="moderate" /> moderate</span><span><SiteGlyph kind="candidate" conf="low" /> low</span>
+        <p><em>Site</em><span><SiteGlyph kind="candidate" conf="high" /> candidate</span><span><SiteGlyph kind="known" conf="high" /> established</span></p>
+        <p><em>Fill is confidence</em><span><SiteGlyph kind="candidate" conf="high" /> high</span><span><SiteGlyph kind="candidate" conf="moderate" /> moderate</span><span><SiteGlyph kind="candidate" conf="low" /> low</span></p>
       </div>
     </aside>
   );

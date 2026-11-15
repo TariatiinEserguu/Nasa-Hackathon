@@ -100,7 +100,7 @@ export function cellValue(grid: Float32Array, w: number, h: number, lat: number,
 
 // ---- colour ramps ----
 // One ramp per body, ordered in lightness so it survives greyscale and colour-blind viewing.
-// Every basemap in the observatory is dark, so the strongest match is always the brightest cell.
+// Every basemap is dark, so the strongest match is always the brightest cell.
 //   mars   oxblood -> copper -> apricot -> ivory
 //   moon   slate teal -> ice blue -> near white (the low end stays clear of the navy sea)
 type Stop = [number, number, number];

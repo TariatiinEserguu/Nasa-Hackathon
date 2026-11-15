@@ -12,20 +12,23 @@ const BLANK = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcS
 export const HOME = { center: [72, 30] as [number, number], zoom: 1.9 };
 /** Whole-Earth view sized to the frame: the globe is fitted beside the legend rather than under it. */
 export function homeView(c: HTMLElement) {
+  // the title block sits top left inside the neatline; the globe is fitted beside and below it
   const wide = c.clientWidth > 620;
-  const padding = wide ? { left: 150, top: 34, right: 0, bottom: 0 } : { left: 0, top: 40, right: 0, bottom: 0 };
+  const padding = wide ? { left: 96, top: 64, right: 0, bottom: 0 } : { left: 0, top: 64, right: 0, bottom: 0 };
   const d = Math.min(c.clientWidth - padding.left, c.clientHeight - padding.top) * 0.9;
   // globe diameter is about 0.89 x 512 x 2^zoom / pi pixels when centred at 30 degrees latitude
   return { center: HOME.center, zoom: Math.max(0.7, Math.min(2.6, Math.log2((d * Math.PI) / 456))), padding };
 }
 
 /* ------------------------------------------------------------------ shared atlas style pieces */
-// FG is the chalk used for line work and symbols, BG the midnight ground used for halos. Same values as styles.css.
-export const FG = "#ECE5D6", BG = "#0B1220", SEA = "#0A1424";
+// FG is the chalk used for line work and symbols, BG the plate ground used for halos. Same values as --chalk and --plate in styles.css.
+export const FG = "#E8EAEE", BG = "#050608", SEA = "#0A1630";
+/** Symbol colours for lists outside the map (ranked list): the same chalk on the page's black. */
+export const INK = "#E8EAEE", PAPER = "#08090B";
 
-/** Hypsometric tint in basalt tones: dark land on a midnight sea, lighter with altitude. Stops are metres. */
+/** Hypsometric tint in graphite tones on a navy sea, lighter with altitude. Stops are metres. */
 const TINT: any[] = ["interpolate", ["linear"], ["elevation"],
-  -9000, "#050A14", -200, "#08111F", -1, SEA, 0, "#242930", 500, "#292E35", 1500, "#303439", 3000, "#38393B", 4500, "#414240", 6000, "#4F4F4C", 8000, "#62625E"];
+  -9000, "#030914", -200, "#071126", -1, SEA, 0, "#25292F", 500, "#2A2E34", 1500, "#32353A", 3000, "#3A3C40", 4500, "#444548", 6000, "#525356", 8000, "#66676A"];
 
 /** Sources and layers of the "Atlas relief" basemap, reused by every Earth map in the app. */
 export function atlasStyleParts() {
@@ -102,7 +105,8 @@ function renderHeat(grid: Float32Array, w: number, h: number, rampName: string, 
 // Shape says what the site is; fill says how far to trust it. Colour is left to the similarity layer.
 //   circle = candidate from the scan      square = established analog
 //   solid = high confidence   half = moderate   open = low
-export function siteSymbol(kind: "known" | "candidate", conf: string, px = 15): string {
+export function siteSymbol(kind: "known" | "candidate", conf: string, px = 15, FG_ = FG, BG_ = BG): string {
+  const FG = FG_, BG = BG_;
   const s = px, c = s / 2, r = s / 2 - 2.2;
   const shape = (fill: string) => kind === "known"
     ? `<rect x="${c - r}" y="${c - r}" width="${2 * r}" height="${2 * r}" fill="${fill}" stroke="${FG}" stroke-width="1.5"/>`
@@ -167,9 +171,71 @@ export function MapBusy({ map }: { map: maplibregl.Map | null }) {
   return busy ? <div className="mapbusy" role="status">Loading map tiles</div> : null;
 }
 
-/** Corner crosses that mark the edge of the frame, as on a survey photograph. */
+/** Stars behind the globe, drawn once from a fixed seed on two canvases; the second one breathes slowly,
+ *  so a few stars appear to twinkle. They exist only to set the Earth off; in flat view the map covers them. */
+function StarField() {
+  const a = useRef<HTMLCanvasElement>(null), b = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const draw = () => {
+      for (const [cv, seed, n] of [[a.current, 7, 900], [b.current, 31, 260]] as const) {
+        if (!cv) continue;
+        const dpr = Math.min(2, window.devicePixelRatio || 1), w = cv.clientWidth, h = cv.clientHeight;
+        cv.width = w * dpr; cv.height = h * dpr;
+        const ctx = cv.getContext("2d")!;
+        ctx.scale(dpr, dpr);
+        let x = seed;
+        const rnd = () => ((x = (x * 16807) % 2147483647) / 2147483647);
+        const count = Math.round((n * w * h) / (1400 * 900));
+        for (let i = 0; i < count; i++) {
+          const px = rnd() * w, py = rnd() * h, m = rnd(), r = m > 0.982 ? 1.9 : m > 0.92 ? 1.3 : 0.6 + rnd() * 0.5;
+          const tint = rnd() < 0.18 ? "200,216,255" : rnd() < 0.08 ? "255,232,210" : "236,240,248";
+          ctx.fillStyle = `rgba(${tint},${0.75 + rnd() * 0.25})`;
+          ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+          if (r > 1.1) { // the brightest few get a soft halo
+            const g = ctx.createRadialGradient(px, py, 0, px, py, r * 6);
+            g.addColorStop(0, `rgba(${tint},0.5)`); g.addColorStop(1, `rgba(${tint},0)`);
+            ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, r * 6, 0, Math.PI * 2); ctx.fill();
+          }
+        }
+      }
+    };
+    draw();
+    const ro = new ResizeObserver(draw);
+    if (a.current) ro.observe(a.current);
+    return () => ro.disconnect();
+  }, []);
+  return <div className="stars" aria-hidden="true"><canvas ref={a} /><canvas ref={b} className="twinkle" /><i className="halo" /></div>;
+}
+
+/** The neatline: a ruled inner frame with ticks and corner crosses, as on a survey plate. */
 function Fiducials() {
   return <div className="fiducials" aria-hidden="true"><i /><i /><i /><i /></div>;
+}
+
+/** Live readout of where the map is pointed: centre, zoom and projection, in the corner of the plate. */
+function CentreReadout({ map, flat }: { map: maplibregl.Map | null; flat: boolean }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!map) return;
+    const upd = () => {
+      const c = map.getCenter(), el = ref.current;
+      if (!el) return;
+      const lat = Math.abs(c.lat).toFixed(1) + "°" + (c.lat >= 0 ? "N" : "S");
+      const lng = ((c.lng + 540) % 360) - 180, lon = Math.abs(lng).toFixed(1) + "°" + (lng >= 0 ? "E" : "W");
+      el.querySelector("[data-c]")!.textContent = `${lat} ${lon}`;
+      el.querySelector("[data-z]")!.textContent = map.getZoom().toFixed(1);
+    };
+    upd();
+    map.on("move", upd);
+    return () => { map.off("move", upd); };
+  }, [map]);
+  return (
+    <div className="centre" ref={ref} aria-hidden="true">
+      <span>Centre <b data-c className="num">—</b></span>
+      <span>Zoom <b data-z className="num">—</b></span>
+      <span>{flat ? "Web Mercator" : "Globe"}</span>
+    </div>
+  );
 }
 
 export function NorthArrow() {
@@ -211,6 +277,7 @@ function tipHtml(s: MapSite, targetName: string) {
 
 export function MapView(p: Props) {
   const el = useRef<HTMLDivElement>(null);
+  const frame = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [ready, setReady] = useState<maplibregl.Map | null>(null);
   const [flat, setFlat] = useState(false);
@@ -335,7 +402,7 @@ export function MapView(p: Props) {
       m.addLayer({ id: "heat", type: "raster", source: "heat", paint: { "raster-opacity": latest.current.overlayOpacity, "raster-resampling": "nearest", "raster-fade-duration": 0 } });
       addReferenceLayers(m);
       m.addSource("cell", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-      m.addLayer({ id: "cell", type: "line", source: "cell", paint: { "line-color": ["case", ["==", ["get", "pin"], 1], FG, "#A9B4C2"], "line-width": ["case", ["==", ["get", "pin"], 1], 2, 1.1] } });
+      m.addLayer({ id: "cell", type: "line", source: "cell", paint: { "line-color": ["case", ["==", ["get", "pin"], 1], FG, "#B5BCC2"], "line-width": ["case", ["==", ["get", "pin"], 1], 2, 1.1] } });
       m.addSource("sites", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       await addSiteImages(m);
       if (!map.current) return;
@@ -415,6 +482,23 @@ export function MapView(p: Props) {
     if (m && s) m.flyTo({ center: [s.lon, Math.max(-84, Math.min(84, s.lat))], zoom: Math.max(m.getZoom(), 5.2), speed: 1.4, essential: false });
   }, [p.selected, ready]);
   useEffect(() => { ready?.setProjection({ type: flat ? "mercator" : "globe" }); }, [flat, ready]);
+  // keep the glow behind the globe on the globe: its centre follows the map padding, its size the zoom
+  useEffect(() => {
+    const m = ready;
+    if (!m) return;
+    const upd = () => {
+      const f = frame.current;
+      if (!f) return;
+      const q = m.getPadding(), c = m.getContainer();
+      const p = { left: q.left ?? 0, right: q.right ?? 0, top: q.top ?? 0, bottom: q.bottom ?? 0 };
+      f.style.setProperty("--gx", `${p.left + (c.clientWidth - p.left - p.right) / 2}px`);
+      f.style.setProperty("--gy", `${p.top + (c.clientHeight - p.top - p.bottom) / 2}px`);
+      f.style.setProperty("--gr", `${0.93 * (512 / (2 * Math.PI)) * Math.pow(2, m.getZoom())}px`);
+    };
+    upd();
+    m.on("move", upd); m.on("resize", upd);
+    return () => { m.off("move", upd); m.off("resize", upd); };
+  }, [ready]);
 
   const go = (e: React.FormEvent) => {
     e.preventDefault();
@@ -426,7 +510,8 @@ export function MapView(p: Props) {
   };
 
   return (
-    <div className="mapframe well">
+    <div ref={frame} className={`mapframe well ${ready ? "ready" : ""} ${flat ? "flat" : ""}`}>
+      <StarField />
       <div ref={el} className="map" />
       <Fiducials />
       <div className="mapctl" role="group" aria-label="Map view">
@@ -440,6 +525,7 @@ export function MapView(p: Props) {
         <input id="goto" value={goto} onChange={(e) => { setGoto(e.target.value); setGotoErr(false); }} placeholder="25.4 N, 39.9 E" spellCheck={false} aria-invalid={gotoErr} />
         {gotoErr && <span role="alert">Enter latitude, then longitude</span>}
       </form>
+      <CentreReadout map={ready} flat={flat} />
       <ScaleBar map={ready} />
       <MapBusy map={ready} />
     </div>

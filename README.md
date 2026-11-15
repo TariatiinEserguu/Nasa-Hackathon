@@ -69,7 +69,7 @@ Deep links work, for example `#/explore?t=tranquillitatis&s=c117` opens the Harr
   every map layer that is shown but not scored, the outside sources that were examined and what was decided for each,
   and the limits of the work.
 
-The visual system (Observatory) is documented in [`DESIGN.md`](DESIGN.md).
+The visual system (Plate & margin) is documented in [`DESIGN.md`](DESIGN.md).
 
 | Field report | Map layers |
 |---|---|
@@ -172,7 +172,7 @@ web/        interactive application (React + TypeScript + MapLibre GL, Vite)
 web/public/data, web/public/img   committed pipeline outputs used by the app
 tests/      browser end-to-end checks
 docs/       presentation, screenshots and the data-source assessment (DATA_SOURCES.md)
-DESIGN.md   the Observatory design system as implemented
+DESIGN.md   the Plate & margin design system as implemented
 PROGRESS.md decisions, findings, limitations
 ```
 

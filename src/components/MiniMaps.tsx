@@ -287,7 +287,7 @@ export function BodyMap({ body, targets, selected, onSelect, tall = false }:
     const m = new maplibregl.Map({
       container: el.current!, center: [sel.lon, Math.max(-78, Math.min(78, sel.lat))], zoom: Math.abs(sel.lat) > 80 ? 1.6 : 2.6, minZoom: 0.4, maxZoom: 9.5, attributionControl: false,
       dragRotate: false, pitchWithRotate: false, touchPitch: false, cooperativeGestures: true,
-      style: { version: 8, projection: { type: "globe" }, sources: {}, layers: [{ id: "bg", type: "background", paint: { "background-color": "#1A2130" } }], sky: { "atmosphere-blend": 0 } } as any,
+      style: { version: 8, projection: { type: "globe" }, sources: {}, layers: [{ id: "bg", type: "background", paint: { "background-color": "#0B1222" } }], sky: { "atmosphere-blend": 0 } } as any,
     });
     map.current = m;
     m.touchZoomRotate.disableRotation();

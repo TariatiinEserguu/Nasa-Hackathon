@@ -226,7 +226,7 @@ export default function App() {
             ) : <LayerPanel s={ls} set={patchLs} />}
           </aside>
 
-          <div className="mapcol">
+          <div className="mapcol plate">
             <div className="mapwrap">
               <MapView grid={shown} w={gw} h={gh} rampName={rampName} domain={domain} classes={ls.classed ? classes : null} showOverlay={ls.overlay} overlayOpacity={ls.overlayOpacity}
                 base={ls.base} baseDate={ls.baseDate} obs={ls.obs} obsDate={ls.obsDate} obsOpacity={ls.obsOpacity} refs={ls.refs}
@@ -243,10 +243,12 @@ export default function App() {
                   {target.factors.map((k) => <button key={k} aria-pressed={activeLayer === k} onClick={() => setLayer(k)}>{facLabel(k)}</button>)}
                 </div>
               </div>
+            </div>
+            <div className="margin">
               <Legend title={activeLayer === "overall" ? "Overall similarity" : `${facLabel(activeLayer)} score`} unitLabel={activeLayer === "overall" ? "similarity" : `${facLabel(activeLayer).toLowerCase()} score`}
                 classes={classes} classed={ls.classed} rampName={rampName} domain={domain} dist={shownDist} shown={ls.overlay} obs={earthLayer(ls.obs) ?? null} obsDate={ls.obsDate} />
+              <ProbeBar b={b} target={target} grids={liveGrids} overall={overallGrid} dist={dist} gw={gw} gh={gh} sites={b.sites} onOpen={setSiteId} />
             </div>
-            <ProbeBar b={b} target={target} grids={liveGrids} overall={overallGrid} dist={dist} gw={gw} gh={gh} sites={b.sites} onOpen={setSiteId} />
             <div className="mapfoot">{attribution(ls, b.meta.grid.land_cells, b.meta.grid.deg)}</div>
           </div>
 
@@ -296,7 +298,7 @@ export default function App() {
                               <span className="nm2" aria-hidden="true"><b>{nm}</b>{pl.length ? <i>{pl.join(", ")}</i> : null}</span>
                               <span className="sc">{fmt(x.overall, 2)}</span>
                               <span className="meta">
-                                <SiteGlyph kind={x.site.kind} conf={sc.conf.label} />
+                                <SiteGlyph kind={x.site.kind} conf={sc.conf.label} tone="paper" />
                                 <span className={`tag ${x.site.kind === "known" ? "known" : "cand"}`}>{x.site.kind === "known" ? "established" : "candidate"}</span>
                                 <Pips expected={sc.expected} matched={sc.matched} have={(k) => sc.fac[k as FactorId] != null} />
                                 <span className="num">{sc.matched.length}/{sc.expected.length}</span>
