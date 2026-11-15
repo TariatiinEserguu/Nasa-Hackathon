@@ -805,7 +805,6 @@ svg.proof .glabel { fill: var(--fg-2); font-size: 11.5px; }
   --note: #A39D8D;
   --faint: #716F63;
 
-  /* Keep the existing body colours as data colours. */
   --mars: #D0713F;
   --mars-hi: #EBA27C;
   --moon: #7FBAD3;
@@ -1485,7 +1484,7 @@ table.data td { padding-block: 12px; }
   --note: #9AAABD;
   --faint: #718197;
 
-  --mars: #D5A94F;
+  --mars: #d17f49ee;
   --mars-hi: #E8C978;
   --moon: #83B8D1;
   --moon-hi: #B0D5E5;
@@ -1495,9 +1494,9 @@ table.data td { padding-block: 12px; }
   --sea: #0A1524;
   --land: #26374A;
 
-  --accent: #D5A94F;
-  --accent-hi: #E8C978;
-  --panel: rgba(15, 26, 42, .97);
+  --accent: #d5964f;
+  --accent-hi: #e8a578;
+  --panel: rgba(216, 120, 51, 0.97);
 
   --sans: Roboto, "Helvetica Neue", Arial, sans-serif;
   --math: var(--sans);
@@ -1815,4 +1814,775 @@ table.ledger, .ftable { font-size: 15.5px; }
   .mapcol { border-radius: 0; }
   .rail, .side { border-radius: 0; box-shadow: none; }
   .kpis { margin: 0 var(--gap); }
+}
+
+
+
+
+
+
+:root {
+  --gutter: 12px;
+
+  --panel-bg: #101C2E;
+  --panel-r: 20px;
+  --card-r: 14px;
+  --ctl-r: 10px;
+
+  --tone: color-mix(in srgb, var(--fg) 6%, transparent);
+  --tone-hi: color-mix(in srgb, var(--fg) 11%, transparent);
+
+  --soft: 0 12px 32px rgba(0, 0, 0, 0.30);
+
+  --panel-glass: color-mix(in srgb, #101C2E 88%, transparent);
+  --card-glass: color-mix(in srgb, #0C1624 85%, transparent);
+
+  --blur: blur(14px) saturate(1.12);
+
+  --mars: #E0864A;
+  --mars-hi: #EFAA7B;
+  --accent: #E0864A;
+  --accent-hi: #EFAA7B;
+}
+
+[data-body="mars"] {
+  --accent: #E0864A;
+  --accent-hi: #EFAA7B;
+}
+
+
+.explore {
+  --sidew: var(--side);
+  --il: calc(var(--rail) + 2 * var(--gutter));
+  --ir: calc(var(--sidew) + 2 * var(--gutter));
+
+  display: block;
+  position: relative;
+  background: var(--void);
+}
+
+.explore.dossier-open {
+  --sidew: min(780px, 50vw);
+}
+
+@media (max-width: 1540px) {
+  .explore.dossier-open {
+    --sidew: min(760px, 54vw);
+    --il: var(--gutter);
+  }
+}
+
+@media (max-width: 1180px) {
+  .explore.dossier-open {
+    --sidew: min(660px, 60vw);
+  }
+}
+
+.mapcol {
+  position: absolute;
+  inset: 0;
+}
+
+.fiducials {
+  display: none;
+}
+
+.rail,
+.side {
+  position: absolute;
+  top: var(--gutter);
+  bottom: var(--gutter);
+  z-index: 5;
+  overflow-y: auto;
+
+  background: var(--panel-glass);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+
+  border: 0;
+  border-radius: var(--panel-r);
+  box-shadow: var(--soft);
+}
+
+.rail {
+  left: var(--gutter);
+  width: var(--rail);
+  scrollbar-gutter: stable;
+}
+
+.side {
+  right: var(--gutter);
+  width: var(--sidew);
+}
+
+.maphud {
+  left: calc(var(--il) + 16px);
+  right: calc(var(--ir) + 100px);
+}
+
+.mapctl {
+  right: calc(var(--ir) + 16px);
+}
+
+.goto,
+.scalebar {
+  right: calc(var(--ir) + 16px);
+}
+
+.legend {
+  left: calc(var(--il) + 16px);
+}
+
+.mapnote {
+  left: calc(var(--il) + 10px);
+}
+
+.probe,
+.mapfoot {
+  padding-left: calc(var(--il) + var(--gap));
+  padding-right: calc(var(--ir) + var(--gap));
+}
+
+
+.railtabs {
+  background: var(--panel-glass);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+
+  border: 0;
+  padding: 12px 12px 6px;
+  gap: 6px;
+}
+
+.railtabs button {
+  flex: 1;
+  padding: 11px 10px;
+  border-radius: var(--ctl-r);
+}
+
+.railtabs button:hover {
+  background: var(--tone);
+}
+
+.railtabs button[aria-selected="true"] {
+  background: var(--bg-active);
+  color: var(--fg);
+}
+
+.railtabs button[aria-selected="true"]::after {
+  display: none;
+}
+
+
+.section {
+  border-bottom: 0;
+  padding: 20px 22px 10px;
+}
+
+.section + .section {
+  padding-top: 26px;
+}
+
+.stepno {
+  display: none;
+}
+
+.section > h3 {
+  gap: 0;
+  margin-bottom: 14px;
+}
+
+
+.tlist {
+  border-top: 0;
+  margin: 0 -10px;
+  gap: 2px;
+}
+
+.titem {
+  border: 0;
+  border-radius: var(--card-r);
+  padding: 12px 14px 13px;
+}
+
+.titem:hover {
+  background: var(--tone);
+}
+
+.titem[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-raised));
+}
+
+.titem[aria-pressed="true"]::before {
+  display: none;
+}
+
+
+.chip {
+  border: 0;
+  background: var(--bg-raised);
+  border-radius: var(--ctl-r);
+  padding: 8px 14px;
+}
+
+.chip:hover {
+  background: var(--bg-hover);
+}
+
+.chip[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--accent) 15%, var(--bg-raised));
+  color: var(--accent-hi);
+}
+
+.seg,
+.tabs2,
+.segs {
+  border: 0;
+}
+
+.segs {
+  background: var(--card-glass);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border-radius: 14px;
+  box-shadow: var(--soft);
+}
+
+.seg button,
+.tabs2 button,
+.segs button {
+  border: 0;
+  border-radius: var(--ctl-r);
+}
+
+.btn {
+  border: 0;
+  background: var(--bg-raised);
+}
+
+.btn:hover {
+  background: var(--bg-hover);
+}
+
+.btn.primary,
+.btn.primary:hover {
+  background: var(--accent);
+}
+
+select.sel {
+  border: 0;
+}
+
+.datebar button,
+.datebar input {
+  border: 0;
+  background: var(--bg-raised);
+}
+
+.datebar button:hover {
+  background: var(--bg-hover);
+}
+
+/* Tags and indicators */
+.tag {
+  border: 0;
+  background: var(--tone-hi);
+  border-radius: 7px;
+  padding: 1px 9px;
+}
+
+.tag.measured,
+.tag.compiled,
+.tag.category,
+.tag.d-scored {
+  background: var(--silver);
+  color: var(--bg);
+}
+
+.tag.model,
+.tag.blend,
+.tag.literature,
+.tag.d-displayed,
+.tag.proxy,
+.tag.d-searched {
+  background: var(--tone-hi);
+}
+
+.pips i {
+  border: 0;
+  background: var(--line-strong);
+  border-radius: 3px;
+}
+
+.pips i.on {
+  background: var(--accent);
+}
+
+.pips i.na {
+  background: var(--tone);
+}
+
+.opt em {
+  border: 0;
+  background: var(--tone-hi);
+  border-radius: 6px;
+}
+
+/* ---------- ranking ---------- */
+
+.rk {
+  width: calc(100% - 20px);
+  margin: 2px 10px;
+  padding: 14px 14px 14px 8px;
+  border: 0;
+  border-radius: var(--card-r);
+}
+
+.rk:hover {
+  background: var(--tone);
+}
+
+/* ---------- layer panel ---------- */
+
+.layerpanel fieldset {
+  border-bottom: 0;
+  padding: 16px 22px;
+}
+
+.optwrap.on {
+  margin: 4px -10px;
+  padding: 8px 10px 14px;
+  border: 0;
+  border-radius: var(--card-r);
+}
+
+/* ---------- floating map cards ---------- */
+
+.cartouche,
+.legend,
+.goto,
+.mapctl {
+  background: var(--card-glass);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+
+  border: 0;
+  box-shadow: var(--soft);
+  border-radius: 16px;
+}
+
+/* Keep the layer selector glassy as well */
+.segs {
+  background: var(--card-glass);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+}
+
+.mapctl {
+  padding: 4px;
+  gap: 2px;
+}
+
+.mapctl button,
+.mapctl button.wide {
+  border: 0;
+  border-radius: 10px;
+}
+
+.mapctl button.wide {
+  background: var(--tone);
+}
+
+.mapnote {
+  border: 0;
+}
+
+.hist {
+  border-bottom: 0;
+}
+
+.symkey,
+.obsleg {
+  border-top: 0;
+}
+
+.symkey {
+  margin-top: 14px;
+  padding-top: 0;
+}
+
+.obsleg {
+  margin-top: 14px;
+  padding-top: 0;
+}
+
+.probe {
+  border-top: 0;
+  background: var(--bg-sunk);
+}
+
+.mapfoot {
+  border-top: 0;
+  background: var(--bg-sunk);
+}
+
+/* ---------- field report ---------- */
+
+.dbar {
+  background: var(--panel-glass);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border-bottom: 0;
+}
+
+.back {
+  border-right: 0;
+}
+
+.dhead {
+  border-bottom: 0;
+}
+
+.kpis {
+  border-top: 0;
+  background: var(--bg-raised);
+  border-radius: var(--card-r);
+  margin: 0 22px;
+}
+
+.kpi {
+  border-right: 0;
+}
+
+.dsec {
+  border-bottom: 0;
+  padding-top: 34px;
+}
+
+.frame {
+  border: 0;
+  border-radius: var(--card-r);
+}
+
+.callout {
+  border: 0;
+  border-radius: var(--card-r);
+  background: var(--bg-raised);
+}
+
+.holdfail section + section {
+  border-left: 0;
+}
+
+.holdfail h4 {
+  border-bottom: 0;
+}
+
+.mapframe.mini {
+  border: 0;
+  border-radius: var(--card-r);
+}
+
+/* ---------- text sizing ---------- */
+
+.small {
+  font-size: 15.5px;
+}
+
+.tiny {
+  font-size: 14px;
+}
+
+.fine,
+.note {
+  font-size: 15px;
+}
+
+.credit {
+  font-size: 14.5px;
+}
+
+.blurb {
+  font-size: 16.5px;
+}
+
+.section > h3,
+.layerpanel legend {
+  font-size: 17.5px;
+}
+
+.titem .n {
+  font-size: 16.5px;
+}
+
+.titem .s {
+  font-size: 15.5px;
+}
+
+.wrow,
+.opt b {
+  font-size: 16px;
+}
+
+.opt small,
+.dm,
+.rk .meta {
+  font-size: 15px;
+}
+
+.chip,
+.seg button,
+.tabs2 button,
+.segs button,
+.btn {
+  font-size: 15.5px;
+}
+
+.tag {
+  font-size: 13.5px;
+}
+
+.rk .r {
+  font-size: 15px;
+}
+
+.rk .nm2 b {
+  font-size: 18px;
+}
+
+.rk .nm2 i {
+  font-size: 15.5px;
+}
+
+.rk .sc {
+  font-size: 24px;
+}
+
+.cartouche .sub {
+  font-size: 15.5px;
+}
+
+.legend h3 {
+  font-size: 19px;
+}
+
+.classes li {
+  font-size: 15px;
+}
+
+.classes li.head {
+  font-size: 13px;
+}
+
+.symkey {
+  font-size: 14.5px;
+}
+
+.goto,
+.goto input {
+  font-size: 15px;
+}
+
+.pk,
+.kpi .k,
+.meter .k {
+  font-size: 13.5px;
+}
+
+.probe.idle p {
+  font-size: 15px;
+}
+
+.mapfoot {
+  font-size: 13.5px;
+}
+
+.dsec > h3 {
+  font-size: 24px;
+}
+
+ul.plain li,
+.callout {
+  font-size: 16.5px;
+}
+
+table.ledger,
+.ftable {
+  font-size: 15.5px;
+}
+
+.facts dt,
+.tri .kv {
+  font-size: 15.5px;
+}
+
+/* ---------- dossier-open layout ---------- */
+
+.explore.dossier-open .goto {
+  display: none;
+}
+
+.explore.dossier-open .legend {
+  width: 220px;
+  padding: 10px 12px;
+}
+
+.explore.dossier-open .legend .hist,
+.explore.dossier-open .legend .hist + .fine,
+.explore.dossier-open .legend .symkey,
+.explore.dossier-open .legend .obsleg .fine {
+  display: none;
+}
+
+.explore.dossier-open .cartouche {
+  max-width: 300px;
+}
+
+.explore.dossier-open .cartouche h2 {
+  font-size: 22px;
+}
+
+.explore.dossier-open .probe .where .pv {
+  min-width: 0;
+}
+
+.explore.dossier-open .dm {
+  min-width: 72px;
+}
+
+@media (min-width: 901px) and (max-width: 1320px) {
+  .goto {
+    display: none;
+  }
+
+  .legend {
+    width: 220px;
+    padding: 10px 12px;
+  }
+
+  .legend .hist,
+  .legend .hist + .fine,
+  .legend .symkey,
+  .legend .obsleg .fine {
+    display: none;
+  }
+
+  .cartouche {
+    max-width: 300px;
+  }
+
+  .cartouche h2 {
+    font-size: 22px;
+  }
+}
+
+/* ---------- small screens ---------- */
+
+@media (max-width: 900px) {
+  .explore,
+  .explore.dossier-open {
+    --il: 0px;
+    --ir: 0px;
+    display: flex;
+    background: var(--bg);
+  }
+
+  .mapcol {
+    position: relative;
+    inset: auto;
+  }
+
+  .rail,
+  .side {
+    position: static;
+    width: auto;
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--panel-bg);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .railtabs,
+  .dbar {
+    background: var(--panel-bg);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .maphud {
+    left: 12px;
+    right: 98px;
+  }
+
+  .mapctl {
+    right: 12px;
+  }
+
+  .kpis {
+    margin: 0 var(--gap);
+  }
+}
+
+
+/* FORCE visible glass transparency */
+
+:root {
+  --panel-glass: rgba(9, 23, 41, 0.68);
+  --card-glass: rgba(9, 23, 41, 0.62);
+  --blur: blur(18px) saturate(1.2);
+}
+
+/* Main floating side panels */
+.explore .rail,
+.explore .side {
+  background: rgba(9, 23, 41, 0.68) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.2) !important;
+  backdrop-filter: blur(18px) saturate(1.2) !important;
+}
+
+/* Panel tabs */
+.explore .railtabs,
+.explore .dbar {
+  background: rgba(9, 23, 41, 0.48) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  backdrop-filter: blur(18px) saturate(1.2);
+}
+
+/* Keep ordinary panel sections from painting opaque backgrounds */
+.explore .rail .section,
+.explore .side .section,
+.explore .tlist,
+.explore .layerpanel {
+  background: transparent !important;
+}
+
+/* Floating cards over the globe */
+.explore .cartouche,
+.explore .legend,
+.explore .goto,
+.explore .mapctl,
+.explore .segs {
+  background: rgba(9, 23, 41, 0.62) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.2) !important;
+  backdrop-filter: blur(18px) saturate(1.2) !important;
+}
+
+/* Ranking rows remain transparent */
+.explore .rk {
+  background: transparent;
+}
+
+.explore .rk:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Preserve readability on small screens */
+@media (max-width: 900px) {
+  .explore .rail,
+  .explore .side {
+    background: #101C2E !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
 }
