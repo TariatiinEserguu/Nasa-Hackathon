@@ -9,7 +9,7 @@ temperature, moisture, surface and atmosphere, then checks the leading candidate
 The result is an interactive research instrument in which every number can be traced to its dataset, and in which
 similarity and confidence are reported separately: similarity in colour, confidence as a fill.
 
-![Explore view](https://media.discordapp.net/attachments/1187275057425293312/1571466574815039648/explore2.png?ex=6afad5cb&is=6af9844b&hm=ddfa920c53a9ec377d9f1fb36f0abf8e21341f6ac40c305cdba6d9b2913b06ce&format=webp&quality=lossless)
+![Explore view](docs/img/explore.jpg)
 
 
 ## What it found
@@ -73,9 +73,9 @@ The visual system (Plate & margin) is documented in [`DESIGN.md`](DESIGN.md).
 
 | Field report | Map layers |
 |---|---|
-| ![Field report](https://media.discordapp.net/attachments/1187275057425293312/1571467484253659306/dossier2.png?ex=6afad6a4&is=6af98524&hm=c8fdc462cbdd265fd6e838fe0653ff7841a4c4bf011962d8532ee856ddf800ee&format=webp&quality=lossless) | ![Layer panel with a land surface temperature overlay](https://media.discordapp.net/attachments/1187275057425293312/1571467482273947708/layers2.png?ex=6afad6a4&is=6af98524&hm=cb847815ccef53f3f67e4e6c20cf507877a222e10db7270646363640694b163f&format=webp&quality=lossless) |
+| ![Field report](docs/img/dossier.jpg) | ![Layer panel with a land surface temperature overlay](docs/img/layers.jpg) |
 | **Reference region on Mars** | **Portfolio** |
-| ![Interactive Mars map for Jezero Crater](https://media.discordapp.net/attachments/1187275057425293312/1571467482898890792/reference2.png?ex=6afad6a4&is=6af98524&hm=6572ed24b042ff204a60b0fb8be35b9c9cd1cd19f69664770ab16165873fc6c2&format=webp&quality=lossless) | ![Portfolio world map](https://media.discordapp.net/attachments/1187275057425293312/1571467483611795506/portfolio2.png?ex=6afad6a4&is=6af98524&hm=e248068b6f69f9e0b6616e5f855b6176ed6dfc40dae7a114912ad1c87578d21c&format=webp&quality=lossless) |
+| ![Interactive Mars map for Jezero Crater](docs/img/reference.jpg) | ![Portfolio world map](docs/img/portfolio.jpg) |
 
 ## Method in brief
 
