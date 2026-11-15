@@ -27,8 +27,10 @@ A candidate is a hypothesis for field work, not a conclusion.
 
 ## Run the application
 
-Live: **https://tariatiineserguu.github.io/Nasa-Hackathon/**. Every push to `main` rebuilds and publishes it through
-`.github/workflows/pages.yml`.
+Live: **https://nasa-hackathon-six.vercel.app/** (Vercel).
+
+Also published on GitHub Pages at https://tariatiineserguu.github.io/Nasa-Hackathon/, which every push to `main`
+rebuilds through `.github/workflows/pages.yml`.
 
 The processed results are committed, so the app runs without the data pipeline.
 
