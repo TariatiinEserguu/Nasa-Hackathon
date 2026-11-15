@@ -1,3 +1,4 @@
+//sitedetail.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useActiveSection } from "../lib/useActiveSection";
 import type { Bundle, FactorId, FeatureDef, Site, Target } from "../lib/data";

@@ -1,4 +1,5 @@
-// Pieces of the Explore workspace that sit around the map: legend, cursor readout, layer panel.
+//workspace.tsx
+// // Pieces of the Explore workspace that sit around the map: legend, cursor readout, layer panel.
 import { useMemo } from "react";
 import type { Bundle, FactorId, Site, Target } from "../lib/data";
 import { cellValue, fmt, histogram, rampCss, type Distribution, type ScoreClass } from "../lib/score";

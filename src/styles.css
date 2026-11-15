@@ -820,7 +820,6 @@ svg.proof .glabel { fill: var(--fg-2); font-size: 11.5px; }
   --accent-hi: #E2A27B;
   --panel: rgba(21, 27, 25, .96);
 
-  /* Deliberately avoid the default geometric SaaS type look. */
   --sans: "Avenir Next", Avenir, "Segoe UI", sans-serif;
   --math: Georgia, "Times New Roman", serif;
 
@@ -876,7 +875,6 @@ a:hover { color: var(--accent-hi); }
 .prose { font-size: 16px; line-height: 1.78; color: var(--fg-2); }
 .blurb { font-size: 14.5px; line-height: 1.7; }
 
-/* Header: more like the masthead of a journal than an app toolbar. */
 .masthead {
   height: var(--mast);
   padding-inline: clamp(18px, 2.5vw, 38px);
@@ -988,7 +986,6 @@ select.sel {
   background: var(--bg-raised);
 }
 
-/* Workspace: give the three regions distinct visual weight. */
 .explore {
   grid-template-columns: var(--rail) minmax(0, 1fr) var(--side);
 }
@@ -1134,7 +1131,6 @@ select.sel {
 .mapbusy { border-radius: 8px; }
 
 
-/* Readout: make measurements feel like instrument readings. */
 .probe {
   height: 124px;
   padding: 14px var(--gap);
@@ -1164,7 +1160,6 @@ select.sel {
   font-size: 11.5px;
 }
 
-/* Rankings and reports: editorial hierarchy, less uniform card treatment. */
 .rk {
   padding-block: 15px 16px;
   border-bottom-color: var(--line);
@@ -1271,7 +1266,6 @@ table.ledger th, .ftable td { padding-block: 8px; }
 .tri h4 { font-family: Georgia, "Times New Roman", serif; font-size: 18px; }
 .tri .kv { font-size: 13.5px; }
 
-/* Long-form pages should read like a publication, not an admin console. */
 .pagein {
   max-width: 1240px;
   padding: 64px 48px 120px;
@@ -1471,14 +1465,10 @@ table.data td { padding-block: 12px; }
   }
 }
 
-/* Planetary Twin — dark blue / single-font refinement
-   Append AFTER planetary-twin-field-journal.css.
-   Existing layout, map, and component structure are unchanged. */
 
 :root {
   color-scheme: dark;
 
-  /* Blue-black observatory palette; neutral borders, no green cast. */
   --void: #070D17;
   --bg-sunk: #0B1421;
   --bg: #0E1928;
@@ -1495,7 +1485,6 @@ table.data td { padding-block: 12px; }
   --note: #9AAABD;
   --faint: #718197;
 
-  /* Mars' interface accent is mineral amber, not orange/copper. */
   --mars: #D5A94F;
   --mars-hi: #E8C978;
   --moon: #83B8D1;
@@ -1510,7 +1499,6 @@ table.data td { padding-block: 12px; }
   --accent-hi: #E8C978;
   --panel: rgba(15, 26, 42, .97);
 
-  /* One straightforward sans-serif throughout, including headings. */
   --sans: Roboto, "Helvetica Neue", Arial, sans-serif;
   --math: var(--sans);
 
@@ -1523,7 +1511,6 @@ table.data td { padding-block: 12px; }
   --shadow: 0 12px 30px rgba(0, 0, 0, .26);
 }
 
-/* Keep the selected body's accent coherent. */
 [data-body="mars"] {
   --accent: #D5A94F;
   --accent-hi: #E8C978;
@@ -1542,7 +1529,6 @@ body {
   letter-spacing: 0;
 }
 
-/* Remove the previous editorial serif treatment: one family everywhere. */
 .brand b,
 .cartouche h2,
 .legend h3,
@@ -1566,7 +1552,6 @@ body {
   font-family: var(--sans);
 }
 
-/* Slightly larger text across the interface, including dense metadata. */
 .small { font-size: 14.5px; }
 .tiny { font-size: 13px; }
 .fine, .note { font-size: 14px; }
@@ -1709,4 +1694,125 @@ table.data th, .valsum .k, .toc p { font-size: 12.5px; }
   .page h1 { font-size: 37px; }
   .step .figure { font-size: 46px; }
   .kpi .v { font-size: 22px; }
+}
+
+
+
+:root {
+  --gutter: 12px;
+  --panel-bg: #101C2E;           
+  --panel-r: 20px;               
+  --card-r: 14px;                 
+  --ctl-r: 10px;                 
+  --tone: color-mix(in srgb, var(--fg) 6%, transparent);
+  --tone-hi: color-mix(in srgb, var(--fg) 11%, transparent);
+  --soft: 0 12px 32px rgba(0, 0, 0, 0.30);
+}
+
+.explore { padding: var(--gutter); gap: var(--gutter); background: var(--void); }
+.mapcol { border-radius: var(--panel-r); overflow: hidden; }
+.fiducials { display: none; }   
+.rail, .side { background: var(--panel-bg); border: 0; border-radius: var(--panel-r); box-shadow: var(--soft); }
+.rail { scrollbar-gutter: stable; }
+
+.railtabs { background: var(--panel-bg); border: 0; padding: 12px 12px 6px; gap: 6px; }
+.railtabs button { flex: 1; padding: 11px 10px; border-radius: var(--ctl-r); }
+.railtabs button:hover { background: var(--tone); }
+.railtabs button[aria-selected="true"] { background: var(--bg-active); color: var(--fg); }
+.railtabs button[aria-selected="true"]::after { display: none; }
+
+.section { border-bottom: 0; padding: 20px 22px 10px; }
+.section + .section { padding-top: 26px; }
+.stepno { display: none; }
+.section > h3 { gap: 0; margin-bottom: 14px; }
+
+.tlist { border-top: 0; margin: 0 -10px; gap: 2px; }
+.titem { border: 0; border-radius: var(--card-r); padding: 12px 14px 13px; }
+.titem:hover { background: var(--tone); }
+.titem[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 14%, var(--bg-raised)); }
+.titem[aria-pressed="true"]::before { display: none; }
+
+.chip { border: 0; background: var(--bg-raised); border-radius: var(--ctl-r); padding: 8px 14px; }
+.chip:hover { background: var(--bg-hover); }
+.chip[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 22%, var(--bg-raised)); color: var(--accent-hi); }
+.seg, .tabs2, .segs { border: 0; }
+.btn { border: 0; background: var(--bg-raised); }
+.btn:hover { background: var(--bg-hover); }
+.btn.primary, .btn.primary:hover { background: var(--accent); }
+select.sel { border: 0; }
+.datebar button, .datebar input { border: 0; background: var(--bg-raised); }
+.datebar button:hover { background: var(--bg-hover); }
+.tag { border: 0; background: var(--tone-hi); border-radius: 7px; padding: 1px 9px; }
+.tag.measured, .tag.compiled, .tag.category, .tag.d-scored { background: var(--silver); color: var(--bg); }
+.tag.model, .tag.blend, .tag.literature, .tag.d-displayed, .tag.proxy, .tag.d-searched { background: var(--tone-hi); }
+.pips i { border: 0; background: var(--line-strong); border-radius: 3px; }
+.pips i.on { background: var(--accent); }
+.pips i.na { background: var(--tone); }
+.opt em { border: 0; background: var(--tone-hi); border-radius: 6px; }
+
+.rk { width: calc(100% - 20px); margin: 2px 10px; padding: 14px 14px 14px 8px; border: 0; border-radius: var(--card-r); }
+.rk:hover { background: var(--tone); }
+
+.layerpanel fieldset { border-bottom: 0; padding: 16px 22px; }
+.optwrap.on { margin: 4px -10px; padding: 8px 10px 14px; border: 0; border-radius: var(--card-r); }
+
+.cartouche, .legend, .goto, .segs, .mapctl { border: 0; box-shadow: var(--soft); border-radius: 16px; }
+.mapctl { padding: 4px; gap: 2px; }
+.mapctl button, .mapctl button.wide { border: 0; border-radius: 10px; }
+.mapctl button.wide { background: var(--tone); }
+.mapnote { border: 0; }
+.hist { border-bottom: 0; }
+.symkey, .obsleg { border-top: 0; }
+.symkey { margin-top: 14px; padding-top: 0; }
+.obsleg { margin-top: 14px; padding-top: 0; }
+.probe { border-top: 0; background: var(--bg-sunk); }
+.mapfoot { border-top: 0; background: var(--bg-sunk); }
+
+.dbar { background: var(--panel-bg); border-bottom: 0; }
+.back { border-right: 0; }
+.dhead { border-bottom: 0; }
+.kpis { border-top: 0; background: var(--bg-raised); border-radius: var(--card-r); margin: 0 22px; }
+.kpi { border-right: 0; }
+.dsec { border-bottom: 0; padding-top: 34px; }
+.frame { border: 0; border-radius: var(--card-r); }
+.callout { border: 0; border-radius: var(--card-r); background: var(--bg-raised); }
+.holdfail section + section { border-left: 0; }
+.holdfail h4 { border-bottom: 0; }
+.mapframe.mini { border: 0; border-radius: var(--card-r); }
+
+.small { font-size: 15.5px; }
+.tiny { font-size: 14px; }
+.fine, .note { font-size: 15px; }
+.credit { font-size: 14.5px; }
+.blurb { font-size: 16.5px; }
+.section > h3, .layerpanel legend { font-size: 17.5px; }
+.titem .n { font-size: 16.5px; }
+.titem .s { font-size: 15.5px; }
+.wrow, .opt b { font-size: 16px; }
+.opt small, .dm, .rk .meta { font-size: 15px; }
+.chip, .seg button, .tabs2 button, .segs button, .btn { font-size: 15.5px; }
+.tag { font-size: 13.5px; }
+.rk .r { font-size: 15px; }
+.rk .nm2 b { font-size: 18px; }
+.rk .nm2 i { font-size: 15.5px; }
+.rk .sc { font-size: 24px; }
+.cartouche .sub { font-size: 15.5px; }
+.legend h3 { font-size: 19px; }
+.classes li { font-size: 15px; }
+.classes li.head { font-size: 13px; }
+.symkey { font-size: 14.5px; }
+.goto, .goto input { font-size: 15px; }
+.pk, .kpi .k, .meter .k { font-size: 13.5px; }
+.probe.idle p { font-size: 15px; }
+.mapfoot { font-size: 13.5px; }
+.dsec > h3 { font-size: 24px; }
+ul.plain li, .callout { font-size: 16.5px; }
+table.ledger, .ftable { font-size: 15.5px; }
+.facts dt, .tri .kv { font-size: 15.5px; }
+
+@media (max-width: 900px) {
+  .explore, .explore.dossier-open { padding: 0; gap: 0; background: var(--bg); }
+  .mapcol { border-radius: 0; }
+  .rail, .side { border-radius: 0; box-shadow: none; }
+  .kpis { margin: 0 var(--gap); }
 }
